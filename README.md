@@ -53,7 +53,7 @@ You need a Windrose Dedicated Server already set up on Windows. If you don't hav
 ### Step 1: Download and Install
 
 1. Download the latest release from [GitHub Releases](https://github.com/HumanGenome/WindrosePlus/releases/latest).
-2. Extract the zip into your Windrose Dedicated Server folder (where `R5/` is).
+2. Extract the zip into your Windrose Dedicated Server folder (e.g. `C:\WindroseServer\`).
 3. Open PowerShell in that folder and run:
 
 ```powershell
@@ -66,7 +66,7 @@ This downloads UE4SS, installs the mod, and sets up the dashboard. Reinstalling 
 
 Start the Windrose server like you normally would (`WindroseServer.exe` or `StartServerForeground.bat`). Windrose+ loads automatically.
 
-> **Note:** If your server is installed in `C:\Program Files\` or `C:\Program Files (x86)\`, you need to **Run as Administrator**. Alternatively, install your server to a non-protected path like `C:\WindroseServer\` to avoid this.
+> **Note:** You must **Run as Administrator** when starting the server. Windrose+ uses a proxy DLL (UE4SS) that requires elevated permissions to load.
 
 To start the web dashboard, open a second terminal in your game server folder and run:
 
