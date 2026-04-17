@@ -62,6 +62,45 @@ jobs:
           curl -fsSL "https://raw.githubusercontent.com/trumank/repak/v${REPAK_VERSION}/LICENSE-APACHE" -o tools/bin/LICENSE-repak-APACHE.txt || true
           curl -fsSL "https://raw.githubusercontent.com/trumank/retoc/v${RETOC_VERSION}/LICENSE"        -o tools/bin/LICENSE-retoc.txt       || true
 
+      - name: Fetch HeightmapExporter.dll from v1.0.0 release
+        # cpp-mods/HeightmapExporter ships as source (dllmain.cpp + CMakeLists.txt).
+        # The compiled DLL lives as a standalone asset on the v1.0.0 release.
+        # Rebuild it in a CI job only if/when we need a new version; for now pull
+        # the already-shipped binary so fresh installs still get heightmap export.
+        run: |
+          mkdir -p cpp-mods/HeightmapExporter
+          curl -fsSL "https://github.com/humangenome/WindrosePlus/releases/download/v1.0.0/HeightmapExporter.dll" \
+            -o cpp-mods/HeightmapExporter/HeightmapExporter.dll
+          test -s cpp-mods/HeightmapExporter/HeightmapExporter.dll
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          NOTES_FILE="$(mktemp)"
+          awk -v tag="$TAG" '
+            $0 ~ "^## \\["tag"\\]" { flag=1; next }
+            flag && /^## \[/ { exit }
+            flag
+          ' CHANGELOG.md > "$NOTES_FILE"
+          if [ ! -s "$NOTES_FILE" ]; then
+            echo "No CHANGELOG section found for v$TAG" >&2
+            exit 1
+          fi
+          {
+            echo "Bug fix and improvement release."
+            echo
+            cat "$NOTES_FILE"
+            echo
+            echo "## Install / Upgrade"
+            echo
+            echo "Download \`WindrosePlus.zip\`, extract into your Windrose Dedicated Server folder, run \`install.ps1\`. Reinstalling is safe — your configs and custom mods are preserved. See [the installation guide](https://github.com/HumanGenome/WindrosePlus#installation) for details."
+            echo
+            echo "## Official Hosting"
+            echo
+            echo "Don't want to run your own server? [SurvivalServers.com](https://www.survivalservers.com/services/game_servers/windrose/?utm_source=github&utm_medium=release&utm_campaign=windrose_plus_v${TAG//./_}) offers Windrose servers with Windrose+ pre-installed."
+          } > release_notes.md
+
       - name: Stage release tree
         run: |
           mkdir -p staging
@@ -90,5 +129,6 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           gh release create "$TAG" \
             --title "Windrose+ $TAG" \
-            --generate-notes \
-            WindrosePlus.zip
+            --notes-file release_notes.md \
+            WindrosePlus.zip \
+            cpp-mods/HeightmapExporter/HeightmapExporter.dll
