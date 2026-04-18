@@ -58,7 +58,7 @@ Windrose dedicated servers don't respond to standard server queries, so your ser
 ```
 
 ### 2,400+ Server Settings & Multipliers
-Adjust XP, loot, stack sizes, crafting costs, crop speed, carry weight, and more through a simple JSON file. Go deeper with 2,400+ individual INI settings for player stats, weapons, food effects, creature stats, co-op scaling, swimming, and rest bonuses.
+Adjust XP, loot, stack sizes, crafting costs, crop speed, cooking/smelting speed, inventory size, points per level, carry weight, and more through a simple JSON file. Go deeper with 2,400+ individual INI settings for player stats, weapons, food effects, creature stats, co-op scaling, swimming, and rest bonuses.
 
 **Multipliers** (`windrose_plus.json`):
 ```json
@@ -68,7 +68,10 @@ Adjust XP, loot, stack sizes, crafting costs, crop speed, carry weight, and more
   "stack_size": 5.0,
   "craft_cost": 0.5,
   "crop_speed": 2.0,
-  "weight": 5.0
+  "cooking_speed": 2.0,
+  "inventory_size": 2.0,
+  "points_per_level": 2.0,
+  "weight": 1.0
 }
 ```
 

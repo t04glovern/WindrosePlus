@@ -922,6 +922,7 @@
                     <span id="mult-stack">-</span>
                     <span id="mult-craft">-</span>
                     <span id="mult-crop">-</span>
+                    <span id="mult-cooking">-</span>
                     <span id="mult-weight">-</span>
                     <div id="last-updated">-</div>
                 </div>
@@ -1034,6 +1035,7 @@
                 document.getElementById('mult-stack').textContent = m.stack_size != null ? m.stack_size + 'x' : '-';
                 document.getElementById('mult-craft').textContent = m.craft_cost != null ? m.craft_cost + 'x' : '-';
                 document.getElementById('mult-crop').textContent = m.crop_speed != null ? m.crop_speed + 'x' : '-';
+                document.getElementById('mult-cooking').textContent = m.cooking_speed != null ? m.cooking_speed + 'x' : '-';
                 document.getElementById('mult-weight').textContent = m.weight != null ? m.weight + 'x' : '-';
 
                 const list = document.getElementById('player-list');

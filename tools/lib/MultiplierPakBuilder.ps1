@@ -134,8 +134,21 @@ function Build-MultiplierPak {
     $weight = if ($Config.ContainsKey("weight")) { [double]$Config.weight } else { 1.0 }
     $invSize = if ($Config.ContainsKey("inventory_size")) { [double]$Config.inventory_size } else { 1.0 }
     $pointsPerLvl = if ($Config.ContainsKey("points_per_level")) { [double]$Config.points_per_level } else { 1.0 }
+    $cookSpeed = if ($Config.ContainsKey("cooking_speed")) { [double]$Config.cooking_speed } else { 1.0 }
 
-    $allDefault = ($loot -eq 1.0 -and $xp -eq 1.0 -and $stackSize -eq 1.0 -and $craftCost -eq 1.0 -and $cropSpeed -eq 1.0 -and $weight -eq 1.0 -and $invSize -eq 1.0 -and $pointsPerLvl -eq 1.0)
+    # Clamp to prevent div-by-zero / negative-duration math when the builder is
+    # invoked standalone (Lua clamps, but the PS1 also runs from -BuildPak directly).
+    $loot = [Math]::Max(0.01, $loot)
+    $xp = [Math]::Max(0.01, $xp)
+    $stackSize = [Math]::Max(0.01, $stackSize)
+    $craftCost = [Math]::Max(0.01, $craftCost)
+    $cropSpeed = [Math]::Max(0.01, $cropSpeed)
+    $weight = [Math]::Max(0.01, $weight)
+    $invSize = [Math]::Max(0.01, $invSize)
+    $pointsPerLvl = [Math]::Max(0.01, $pointsPerLvl)
+    $cookSpeed = [Math]::Max(0.01, $cookSpeed)
+
+    $allDefault = ($loot -eq 1.0 -and $xp -eq 1.0 -and $stackSize -eq 1.0 -and $craftCost -eq 1.0 -and $cropSpeed -eq 1.0 -and $weight -eq 1.0 -and $invSize -eq 1.0 -and $pointsPerLvl -eq 1.0 -and $cookSpeed -eq 1.0)
     if ($allDefault) {
         $result.Error = "All multipliers are 1.0 (default). Nothing to build."
         return $result
@@ -158,6 +171,9 @@ function Build-MultiplierPak {
                 if (-not $data.LootData) { continue }
                 $changed = $false
                 foreach ($item in $data.LootData) {
+                    # Skip equipment drops — multiplying weapons/armor/jewelry produces duplicate
+                    # gear stacks and breaks unique-item gameplay (issue #3).
+                    if ($item.LootItem -and $item.LootItem -like "*/InventoryItems/Equipments/*") { continue }
                     if ($null -ne $item.Min -and $null -ne $item.Max) {
                         $item.Min = [Math]::Max(1, [int]($item.Min * $loot))
                         $item.Max = [Math]::Max(1, [int]($item.Max * $loot))
@@ -215,7 +231,9 @@ function Build-MultiplierPak {
                 if (-not $data.InventoryItemGppData) { continue }
                 $gpp = $data.InventoryItemGppData
                 $changed = $false
-                if ($stackSize -ne 1.0 -and $gpp.MaxCountInSlot -and $gpp.MaxCountInSlot -gt 0) {
+                # Skip items with original stack=1 — those are explicitly unstackable
+                # (gear, jewelry, ship cannons, lore notes). Multiplying turns them stackable (issue #3).
+                if ($stackSize -ne 1.0 -and $gpp.MaxCountInSlot -and $gpp.MaxCountInSlot -gt 1) {
                     $gpp.MaxCountInSlot = [Math]::Max(1, [int]($gpp.MaxCountInSlot * $stackSize))
                     $changed = $true
                 }
@@ -266,9 +284,8 @@ function Build-MultiplierPak {
         if ($invSize -ne 1.0) {
             Write-Host "  Modifying inventory slot counts (${invSize}x)..."
             $slotFields = @('CountSlots', 'MaxSlots', 'InventorySize', 'SlotCount')
-            $invFilesA = Invoke-RepakList -Repak $repak -AesKey $AesKey -PakPath $pak -Filter "Inventory"
-            $invFilesB = Invoke-RepakList -Repak $repak -AesKey $AesKey -PakPath $pak -Filter "Character"
-            $invFiles = @($invFilesA) + @($invFilesB) | Sort-Object -Unique
+            # "Character" filter scanned 877 files but matched zero with slot fields — dropped.
+            $invFiles = Invoke-RepakList -Repak $repak -AesKey $AesKey -PakPath $pak -Filter "Inventory"
             $invMod = 0
             foreach ($if in $invFiles) {
                 $fname = $if.Trim()
@@ -307,7 +324,8 @@ function Build-MultiplierPak {
             $outPath = Join-Path $tmpDir $levelFile
 
             if (Test-Path -LiteralPath $outPath) {
-                $data = Get-Content -LiteralPath $outPath -Raw | ConvertFrom-Json
+                # Read explicit UTF-8 — Get-Content -Raw on PS 5.1 falls back to ANSI for BOM-less files.
+                $data = [System.IO.File]::ReadAllText($outPath, [System.Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
                 $alreadyWritten = $true
             } else {
                 $json = Invoke-RepakGet -Repak $repak -AesKey $AesKey -PakPath $pak -FilePath $levelFile
@@ -357,6 +375,38 @@ function Build-MultiplierPak {
                 $cropMod++
             }
             Write-Host "    Modified $cropMod crops"
+        }
+
+        # Cooking / production duration (alchemy elixirs, fermentation, smelting, etc.)
+        # Divide CookingProcessDuration by multiplier: 2x speed = half duration.
+        if ($cookSpeed -ne 1.0) {
+            Write-Host "  Modifying cooking/production speed (${cookSpeed}x)..."
+            $cookFiles = Invoke-RepakList -Repak $repak -AesKey $AesKey -PakPath $pak -Filter "Recipes/"
+            $cookMod = 0
+            foreach ($cf in $cookFiles) {
+                $fname = $cf.Trim()
+                # Reuse craft_cost output if it already wrote to this file
+                $outPath = Join-Path $tmpDir $fname
+                if (Test-Path -LiteralPath $outPath) {
+                    # Read explicit UTF-8 — Get-Content -Raw on PS 5.1 falls back to ANSI for BOM-less files.
+                    $data = [System.IO.File]::ReadAllText($outPath, [System.Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+                    $alreadyWritten = $true
+                } else {
+                    $json = Invoke-RepakGet -Repak $repak -AesKey $AesKey -PakPath $pak -FilePath $fname
+                    if (-not $json) { continue }
+                    $data = $json | ConvertFrom-Json
+                    $alreadyWritten = $false
+                }
+                if ($null -eq $data.CookingProcessDuration -or $data.CookingProcessDuration -le 0) { continue }
+                $data.CookingProcessDuration = [Math]::Max(1, [int]($data.CookingProcessDuration / $cookSpeed))
+                if (-not $alreadyWritten) {
+                    New-Item -ItemType Directory -Force -Path (Split-Path $outPath) | Out-Null
+                    $modifiedCount++
+                }
+                [System.IO.File]::WriteAllText($outPath, ($data | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
+                $cookMod++
+            }
+            Write-Host "    Modified $cookMod recipes"
         }
 
         if ($modifiedCount -eq 0) {

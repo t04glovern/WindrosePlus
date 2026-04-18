@@ -123,6 +123,10 @@ function Config.getPointsPerLevelMultiplier()
     return Config._clampFloat(Config.get("multipliers", "points_per_level"), 1.0, 1.0, 10.0, "points_per_level")
 end
 
+function Config.getCookingSpeedMultiplier()
+    return Config._clampFloat(Config.get("multipliers", "cooking_speed"), 1.0, 0.1, 100.0, "cooking_speed")
+end
+
 function Config.getAdminSteamIds()
     return Config.get("admin", "steam_ids") or {}
 end
@@ -146,7 +150,7 @@ function Config._defaults()
         rcon = { enabled = false, port = 27320, password = "" },
         query = { enabled = true, interval_ms = 5000 },
         admin = { steam_ids = {} },
-        multipliers = { xp = 1.0, loot = 1.0, stack_size = 1.0, craft_cost = 1.0, crop_speed = 1.0, weight = 1.0, inventory_size = 1.0, points_per_level = 1.0 },
+        multipliers = { xp = 1.0, loot = 1.0, stack_size = 1.0, craft_cost = 1.0, crop_speed = 1.0, weight = 1.0, inventory_size = 1.0, points_per_level = 1.0, cooking_speed = 1.0 },
         features = { unlock_all_recipes = false, unlock_all_ships = false },
         debug = { log_level = "info" }
     }

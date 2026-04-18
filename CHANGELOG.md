@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.3] - 2026-04-18
+
+### Fixed
+
+- **`loot` multiplier was duplicating equipment drops ([#3](https://github.com/HumanGenome/WindrosePlus/issues/3)).** The PAK builder scaled every entry in every loot table, including weapons, armor, jewelry, and other one-of-a-kind gear. With `loot = 4`, a chest that should drop 1 sword dropped 4. The patcher now skips entries whose `LootItem` path lives under `InventoryItems/Equipments/` so only stackable resources scale.
+- **`stack_size` multiplier was making explicitly-unstackable items stackable ([#3](https://github.com/HumanGenome/WindrosePlus/issues/3)).** The previous check (`MaxCountInSlot > 0`) treated `1` as "stack of one, scale it." Items the game intends to be unique — gear, jewelry, ship cannons, lore notes — were turning into stackable inventory. The check is now `> 1`, so original stack=1 items stay unstackable.
+
+### Added
+
+- **New `cooking_speed` multiplier.** Divides `CookingProcessDuration` on every Recipe in the PAK, which speeds up alchemy elixirs, fermentation, smelting, and any other timed production. Value is a multiplier just like `crop_speed` (`2.0` = half the time). Range `0.1`–`100.0`. Defaults to `1.0`. Surfaces in `wp.config`, `wp.status`, `server_status.json`, and the dashboard.
+
+### Changed
+
+- PAK builder now reads back temp-dir JSON via explicit BOM-less UTF-8 instead of `Get-Content -Raw`. Prevents Windows PowerShell 5.1 from mis-decoding files that an earlier multiplier already wrote, which would have caused `cooking_speed` and `points_per_level` to corrupt prior `craft_cost` / `xp` edits in mixed-shell setups.
+- PAK builder clamps every multiplier input to a minimum of `0.01` defensively so passing `0` or a negative value can't divide-by-zero or collapse durations to garbage. Lua already clamps; this hardens the standalone `WindrosePlus-BuildPak.ps1` entry path.
+- Dropped a dead `"Character"` filter in the `inventory_size` patcher. It scanned 877 files and matched zero — confirmed against the live game PAK. Net effect: faster builds, no behavior change.
+
 ## [1.0.2] - 2026-04-18
 
 ### Fixed
@@ -46,6 +63,7 @@ Initial public release.
 - **Lua mod API** — custom commands, player events, tick callbacks, hot-reload
 - **Automated installer** — auto-detects game folder, downloads UE4SS, preserves configs on update
 
+[1.0.3]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.3
 [1.0.2]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.2
 [1.0.1]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.1
 [1.0.0]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.0
