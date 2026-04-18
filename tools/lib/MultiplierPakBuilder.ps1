@@ -135,6 +135,7 @@ function Build-MultiplierPak {
     $invSize = if ($Config.ContainsKey("inventory_size")) { [double]$Config.inventory_size } else { 1.0 }
     $pointsPerLvl = if ($Config.ContainsKey("points_per_level")) { [double]$Config.points_per_level } else { 1.0 }
     $cookSpeed = if ($Config.ContainsKey("cooking_speed")) { [double]$Config.cooking_speed } else { 1.0 }
+    $harvestYield = if ($Config.ContainsKey("harvest_yield")) { [double]$Config.harvest_yield } else { 1.0 }
 
     # Clamp to prevent div-by-zero / negative-duration math when the builder is
     # invoked standalone (Lua clamps, but the PS1 also runs from -BuildPak directly).
@@ -147,8 +148,9 @@ function Build-MultiplierPak {
     $invSize = [Math]::Max(0.01, $invSize)
     $pointsPerLvl = [Math]::Max(0.01, $pointsPerLvl)
     $cookSpeed = [Math]::Max(0.01, $cookSpeed)
+    $harvestYield = [Math]::Max(0.01, $harvestYield)
 
-    $allDefault = ($loot -eq 1.0 -and $xp -eq 1.0 -and $stackSize -eq 1.0 -and $craftCost -eq 1.0 -and $cropSpeed -eq 1.0 -and $weight -eq 1.0 -and $invSize -eq 1.0 -and $pointsPerLvl -eq 1.0 -and $cookSpeed -eq 1.0)
+    $allDefault = ($loot -eq 1.0 -and $xp -eq 1.0 -and $stackSize -eq 1.0 -and $craftCost -eq 1.0 -and $cropSpeed -eq 1.0 -and $weight -eq 1.0 -and $invSize -eq 1.0 -and $pointsPerLvl -eq 1.0 -and $cookSpeed -eq 1.0 -and $harvestYield -eq 1.0)
     if ($allDefault) {
         $result.Error = "All multipliers are 1.0 (default). Nothing to build."
         return $result
@@ -407,6 +409,40 @@ function Build-MultiplierPak {
                 $cookMod++
             }
             Write-Host "    Modified $cookMod recipes"
+        }
+
+        # Harvest yield (gatherable resource spawn amounts: berries, ore, wood, etc.)
+        # Multiplies Variants[].Collection[].Amount.Min/Max in ResourceSpawner JSONs.
+        # Does not touch RespawnInterval — yield per node, not respawn rate.
+        if ($harvestYield -ne 1.0) {
+            Write-Host "  Modifying harvest yields (${harvestYield}x)..."
+            $harvFiles = Invoke-RepakList -Repak $repak -AesKey $AesKey -PakPath $pak -Filter "ResourcesSpawners/"
+            $harvMod = 0
+            foreach ($hf in $harvFiles) {
+                $json = Invoke-RepakGet -Repak $repak -AesKey $AesKey -PakPath $pak -FilePath $hf.Trim()
+                if (-not $json) { continue }
+                $data = $json | ConvertFrom-Json
+                if (-not $data.Variants) { continue }
+                $changed = $false
+                foreach ($variant in $data.Variants) {
+                    if (-not $variant.Collection) { continue }
+                    foreach ($entry in $variant.Collection) {
+                        if ($null -ne $entry.Amount -and $null -ne $entry.Amount.Min -and $null -ne $entry.Amount.Max) {
+                            $entry.Amount.Min = [Math]::Max(1, [int]($entry.Amount.Min * $harvestYield))
+                            $entry.Amount.Max = [Math]::Max(1, [int]($entry.Amount.Max * $harvestYield))
+                            $changed = $true
+                        }
+                    }
+                }
+                if ($changed) {
+                    $outPath = Join-Path $tmpDir $hf.Trim()
+                    New-Item -ItemType Directory -Force -Path (Split-Path $outPath) | Out-Null
+                    [System.IO.File]::WriteAllText($outPath, ($data | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
+                    $modifiedCount++
+                    $harvMod++
+                }
+            }
+            Write-Host "    Modified $harvMod resource spawners"
         }
 
         if ($modifiedCount -eq 0) {

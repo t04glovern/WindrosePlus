@@ -35,12 +35,13 @@ Global server multipliers. `1.0` = default, `2.0` = double, `0.5` = half.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `loot` | `1` | Loot/harvest drop quantity (harvest and loot are unified). Equipment drops are excluded so gear can't be duplicated. |
+| `loot` | `1` | Loot drop quantity from chests / containers / enemies. Equipment drops are excluded so gear can't be duplicated. Use `harvest_yield` for resource nodes. |
 | `xp` | `1` | Experience gain. Faster leveling means more talent/stat point payouts; that's the natural game progression, not a separate multiplier. |
 | `stack_size` | `1` | Item stack sizes. Items that ship as unstackable (gear, jewelry, lore notes) stay unstackable. |
 | `craft_cost` | `1` | Crafting material cost (0.5 = half cost) |
 | `crop_speed` | `1` | Crop growth speed (2.0 = twice as fast) |
 | `cooking_speed` | `1` | Cooking / fermentation / smelting speed (2.0 = twice as fast) |
+| `harvest_yield` | `1` | Resource node yield (berries, ore, wood, herbs, etc.). Scales `Amount.Min`/`Max` per node; minimum stays at `1` after rounding. |
 | `weight` | `1` | Per-item weight (`2.0` makes items heavier, `0.5` lighter) |
 | `inventory_size` | `1` | Player / chest / ship / building inventory slot counts |
 | `points_per_level` | `1` | Talent / stat / skill points granted per level-up |

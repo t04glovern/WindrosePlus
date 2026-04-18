@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.5] - 2026-04-18
+
+### Added
+
+- **New `harvest_yield` multiplier.** Scales `Amount.Min`/`Amount.Max` on every entry inside `ResourcesSpawners/` JSON assets, so harvesting a resource node (berries, ore, wood, herbs, etc.) drops more (or fewer) items per interaction. Independent of `loot` (chest/enemy drops) and `crop_speed` (farm growth time). Range `0.1`–`100.0`, defaults to `1.0`. Surfaces in `wp.config`, `wp.status`, `server_status.json`, and the dashboard. Min stays at `1` after rounding so a low multiplier can't zero out a node.
+
+### Notes
+
+Issue [#4](https://github.com/HumanGenome/WindrosePlus/issues/4) (per-level stat rewards skipped when XP gain crosses multiple levels) remains open. The required engine-level catchup hook on `R5HeroLevelUpComponent` is still risky to register inside Windrose's UE4SS host (other RegisterHook attempts have crashed the server in earlier dev passes), so the fix stays deferred. `wp.givestats` (added in 1.0.4) is the manual compensation path; it still records to `windrose_plus_data/stat_grants_queue.log` for audit.
+
 ## [1.0.4] - 2026-04-18
 
 ### Added

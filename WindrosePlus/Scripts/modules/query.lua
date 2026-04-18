@@ -199,7 +199,8 @@ function Query._collectAndWrite()
             weight = Query._config.getWeightMultiplier(),
             inventory_size = Query._config.getInventorySizeMultiplier(),
             points_per_level = Query._config.getPointsPerLevelMultiplier(),
-            cooking_speed = Query._config.getCookingSpeedMultiplier()
+            cooking_speed = Query._config.getCookingSpeedMultiplier(),
+            harvest_yield = Query._config.getHarvestYieldMultiplier()
         },
         timestamp = os.time()
     }
