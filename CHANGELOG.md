@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.2] - 2026-04-18
+
+### Fixed
+
+- **"Encoding errors" on Windows PowerShell 5.1** (the shell still shipped by default on Windows and on Nitrado hosts). Several bundled scripts and installer output contained em-dash characters in UTF-8 files without a byte-order-mark. Without a BOM, Windows PowerShell falls back to the legacy ANSI codepage and mangles those bytes into parse or display errors — the symptom some users worked around by manually swapping `powershell` for `pwsh` in their launchers. All bundled `.ps1` files now ship with a UTF-8 BOM so both `powershell` (5.1) and `pwsh` (7+) parse them correctly.
+- **JSON output from the PAK builder had a BOM on 5.1 but not on 7.** `Set-Content -Encoding UTF8` means "with BOM" on Windows PowerShell and "no BOM" on PowerShell 7 — a long-standing platform gotcha that made PAK contents subtly differ between shells. All JSON writes now emit BOM-less UTF-8 regardless of which shell runs them.
+
+### Changed
+
+- `StartWindrosePlusServer.bat` and `server/start_windrose_plus.bat` prefer PowerShell 7 (`pwsh`) when it's on PATH and fall back to Windows PowerShell 5.1 (`powershell`) otherwise. Both work correctly after the encoding fix above; the preference just picks the newer shell when available.
+
 ## [1.0.1] - 2026-04-17
 
 ### Fixed
@@ -35,5 +46,6 @@ Initial public release.
 - **Lua mod API** — custom commands, player events, tick callbacks, hot-reload
 - **Automated installer** — auto-detects game folder, downloads UE4SS, preserves configs on update
 
+[1.0.2]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.2
 [1.0.1]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.1
 [1.0.0]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.0
