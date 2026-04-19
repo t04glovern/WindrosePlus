@@ -207,7 +207,7 @@ function Build-MultiplierPak {
                 $changed = $false
                 foreach ($level in $data.Levels) {
                     if ($level.Exp -and $level.Exp -gt 0) {
-                        $level.Exp = [Math]::Max(1, [int]($level.Exp / $xp))
+                        $level.Exp = [Math]::Max(1, [long]($level.Exp / $xp))
                         $changed = $true
                     }
                 }
@@ -369,7 +369,7 @@ function Build-MultiplierPak {
                 $data = $json | ConvertFrom-Json
                 if (-not $data.GrowthDuration -or $data.GrowthDuration -le 0) { continue }
                 # Divide duration by speed multiplier: 2x speed = half duration
-                $data.GrowthDuration = [Math]::Max(1, [int]($data.GrowthDuration / $cropSpeed))
+                $data.GrowthDuration = [Math]::Max(1, [long]($data.GrowthDuration / $cropSpeed))
                 $outPath = Join-Path $tmpDir $cf.Trim()
                 New-Item -ItemType Directory -Force -Path (Split-Path $outPath) | Out-Null
                 [System.IO.File]::WriteAllText($outPath, ($data | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
@@ -400,7 +400,7 @@ function Build-MultiplierPak {
                     $alreadyWritten = $false
                 }
                 if ($null -eq $data.CookingProcessDuration -or $data.CookingProcessDuration -le 0) { continue }
-                $data.CookingProcessDuration = [Math]::Max(1, [int]($data.CookingProcessDuration / $cookSpeed))
+                $data.CookingProcessDuration = [Math]::Max(1, [long]($data.CookingProcessDuration / $cookSpeed))
                 if (-not $alreadyWritten) {
                     New-Item -ItemType Directory -Force -Path (Split-Path $outPath) | Out-Null
                     $modifiedCount++

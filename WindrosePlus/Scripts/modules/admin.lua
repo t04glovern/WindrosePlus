@@ -229,27 +229,35 @@ function Admin._registerCommands()
         description = "Set player movement speed multiplier",
         usage = "wp.speed [player] <multiplier>",
         category = "admin",
-        examples = {"wp.speed 2.0", "wp.speed HumanGenome 1.5"},
+        examples = {"wp.speed 2.0", "wp.speed HumanGenome 1.5", "wp.speed John Smith 1.5"},
         playerArg = true,
         handler = function(args)
             if #args < 1 then return "Usage: wp.speed <multiplier> or wp.speed <player> <multiplier>\n  1.0 = normal, 2.0 = double speed" end
 
-            local targetName = nil
-            local mult = nil
-
-            if #args >= 2 then
-                targetName = args[1]:lower()
-                mult = tonumber(args[2])
-            else
-                mult = tonumber(args[1])
+            -- RCON splits on whitespace and player names can contain spaces.
+            -- Treat the last arg as the multiplier; everything before joins as the name.
+            -- Issue: HumanGenome/WindrosePlus#5
+            local n = #args
+            local mult = tonumber(args[n])
+            if not mult then
+                return "Multiplier must be a number between 0 and 20"
             end
-
-            if not mult or mult < 0 or mult > 20 then
+            if mult < 0 or mult > 20 then
                 return "Multiplier must be between 0 and 20"
+            end
+            local targetName = nil
+            if n >= 2 then
+                targetName = table.concat(args, " ", 1, n - 1):lower()
             end
 
             local pcs = FindAllOf("PlayerController")
             if not pcs then return "No players found" end
+
+            -- Cache baseline MaxWalkSpeed per-player on first touch so setting the
+            -- multiplier back to 1.0 cleanly restores the client-replicated speed
+            -- (CheatMovementSpeedModifer alone is server-side and doesn't replicate).
+            -- Issue: HumanGenome/WindrosePlus#5
+            Admin._origMaxWalkSpeed = Admin._origMaxWalkSpeed or {}
 
             local count = 0
             for _, pc in ipairs(pcs) do
@@ -273,7 +281,18 @@ function Admin._registerCommands()
                             if pawn and pawn:IsValid() then
                                 local mc = pawn.CharacterMovement or pawn.MovementComponent
                                 if mc and mc:IsValid() then
+                                    local key = pName or tostring(pc)
+                                    if not Admin._origMaxWalkSpeed[key] then
+                                        local ok, orig = pcall(function() return mc.MaxWalkSpeed end)
+                                        if ok and orig and orig > 0 then
+                                            Admin._origMaxWalkSpeed[key] = orig
+                                        end
+                                    end
+                                    local base = Admin._origMaxWalkSpeed[key]
                                     mc.CheatMovementSpeedModifer = mult
+                                    if base then
+                                        mc.MaxWalkSpeed = base * mult
+                                    end
                                     count = count + 1
                                 end
                             end

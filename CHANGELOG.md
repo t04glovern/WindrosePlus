@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.7] - 2026-04-19
+
+### Fixed
+
+- **`MultiplierPakBuilder.ps1` crash on large `GrowthDuration` values ([#7](https://github.com/HumanGenome/WindrosePlus/issues/7)).** The crop-speed patcher cast the divided duration to `[int]` (Int32, max ~2.1 billion). Windrose stores some growth durations in game-time units that exceed that ceiling — the one reported hit 21 billion — so the cast threw `InvalidCastIConvertible` and aborted the build. Same fix applied to `Exp` (levels with huge XP requirements) and `CookingProcessDuration` so long production timers can't trip the same ceiling. All three now use `[long]` (Int64).
+- **`wp.speed` refused to match players whose name contains a space ([#5](https://github.com/HumanGenome/WindrosePlus/issues/5)).** Handler assumed `args[1]` was the whole name and `args[2]` was the multiplier, so RCON whitespace-tokenizing "John Smith 1.5" into three args left `args[2] = "Smith"` which `tonumber` rejected. Now peels the multiplier off the trailing arg and joins everything before it as the name — same pattern already used by `wp.givestats`.
+- **`wp.speed 1.0` did not visibly restore normal speed until server restart ([#5](https://github.com/HumanGenome/WindrosePlus/issues/5)).** `CheatMovementSpeedModifer` isn't replicated — setting it server-side updated server prediction but the client kept running at the old speed. Handler now caches each pawn's original `MaxWalkSpeed` on first touch and writes `MaxWalkSpeed = base * mult` alongside the cheat modifier, so `wp.speed <player> 1.0` takes effect immediately.
+
 ## [1.0.6] - 2026-04-18
 
 ### Fixed
@@ -90,6 +98,7 @@ Initial public release.
 - **Lua mod API** — custom commands, player events, tick callbacks, hot-reload
 - **Automated installer** — auto-detects game folder, downloads UE4SS, preserves configs on update
 
+[1.0.7]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.7
 [1.0.4]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.4
 [1.0.3]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.3
 [1.0.2]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.2
