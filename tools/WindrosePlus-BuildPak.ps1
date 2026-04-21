@@ -302,7 +302,7 @@ if ($hasCT) {
 
     if (-not (Test-Path -LiteralPath $retocDir)) {
         if (-not $retocExe) {
-            Write-Error "retoc.exe not found. Reinstall WindrosePlus so tools\bin\retoc.exe is populated."
+            Write-Error "retoc.exe not found at tools\bin\retoc.exe. Antivirus often quarantines retoc/repak as a false positive on Rust UE pak tools. Add an exclusion for the windrose_plus folder in Defender/your AV, then re-extract WindrosePlus.zip over the existing install."
             exit 2
         }
         $utocPath = $gamePak -replace '\.pak$', '.utoc'

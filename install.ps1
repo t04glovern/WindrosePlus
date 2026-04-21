@@ -205,7 +205,8 @@ foreach ($tool in @("repak.exe", "retoc.exe")) {
 if ($missingTools.Count -gt 0) {
     Write-Host ""
     Write-Host "  WARNING: Bundled build tools missing: $($missingTools -join ', ')" -ForegroundColor Yellow
-    Write-Host "           Re-download WindrosePlus.zip and extract it fully." -ForegroundColor Yellow
+    Write-Host "           Antivirus often quarantines retoc/repak as a false positive." -ForegroundColor Yellow
+    Write-Host "           Add an exclusion for the windrose_plus folder, then re-extract WindrosePlus.zip." -ForegroundColor Yellow
 }
 
 # Step 5: write StartWindrosePlusServer.bat wrapper to the game root
