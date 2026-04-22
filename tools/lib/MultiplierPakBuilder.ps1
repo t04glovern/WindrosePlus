@@ -316,46 +316,16 @@ function Build-MultiplierPak {
             Write-Host "    Modified $invMod inventory configs"
         }
 
-        # Points per level (talent/stat/skill rewards on hero level progression).
-        # DA_HeroLevels.json may already have been written by the XP patcher —
-        # if so, re-read from tmpDir to preserve the XP modifications.
+        # points_per_level patching intentionally disabled.
+        # Multiplying TalentPointsReward / StatPointsReward / PointsReward / SkillPoints /
+        # AttributePoints in DA_HeroLevels.json trips the engine's ValidateProgression check
+        # on fresh character spawn: R5BLPlayer_ValidateData fails Condition
+        # 'RewardLevel < CurrentLevel' and the server aborts with R5GameProblems "data
+        # inconsistency". Isolated with a minimal reproduction (pts=3 alone, vanilla Exp,
+        # no UE4SS, virgin world, single-file PAK) which still crashed. No safe patch path
+        # known until the engine's validator is understood or relaxed.
         if ($pointsPerLvl -ne 1.0) {
-            Write-Host "  Modifying points per level (${pointsPerLvl}x)..."
-            $pointFields = @('TalentPointsReward', 'StatPointsReward', 'PointsReward', 'SkillPoints', 'AttributePoints')
-            $levelFile = "R5/Plugins/R5BusinessRules/Content/EntityProgression/DA_HeroLevels.json"
-            $outPath = Join-Path $tmpDir $levelFile
-
-            if (Test-Path -LiteralPath $outPath) {
-                # Read explicit UTF-8 — Get-Content -Raw on PS 5.1 falls back to ANSI for BOM-less files.
-                $data = [System.IO.File]::ReadAllText($outPath, [System.Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
-                $alreadyWritten = $true
-            } else {
-                $json = Invoke-RepakGet -Repak $repak -AesKey $AesKey -PakPath $pak -FilePath $levelFile
-                $data = if ($json) { $json | ConvertFrom-Json } else { $null }
-                $alreadyWritten = $false
-            }
-
-            $pointsMod = 0
-            if ($data -and $data.Levels) {
-                $changed = $false
-                foreach ($level in $data.Levels) {
-                    foreach ($field in $pointFields) {
-                        if ($null -ne $level.$field -and [int]$level.$field -gt 0) {
-                            $level.$field = [Math]::Max(1, [int]([int]$level.$field * $pointsPerLvl))
-                            $changed = $true
-                        }
-                    }
-                }
-                if ($changed) {
-                    if (-not $alreadyWritten) {
-                        New-Item -ItemType Directory -Force -Path (Split-Path $outPath) | Out-Null
-                        $modifiedCount++
-                    }
-                    [System.IO.File]::WriteAllText($outPath, ($data | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
-                    $pointsMod++
-                }
-            }
-            Write-Host "    Modified $pointsMod level entries"
+            Write-Host "  Skipping points_per_level (disabled due to engine ValidateProgression crash)"
         }
 
         # Crop growth speed (FIXED: divide duration to make faster, not max())
