@@ -160,6 +160,10 @@ local MapGen = loadModule("MapGen", function()
     local m = require("modules.mapgen"); m.init(gameDir, Config); return m
 end)
 
+local POIScan = loadModule("POIScan", function()
+    local m = require("modules.poiscan"); m.init(gameDir, Config); return m
+end)
+
 -- Register wp.mapgen command
 if Admin and MapGen then
     Admin._commands["wp.mapgen"] = {
@@ -441,19 +445,22 @@ RegisterHook("/Script/R5.R5MovementComponent:ServerSaveMoveInput", function()
     end
     if Query then pcall(Query.forceWrite) end
     if LiveMap then pcall(LiveMap.writeIfDue) end
+    if POIScan then pcall(POIScan.writeIfDue) end
 end)
 
 -- Drive Query/LiveMap via RCON's LoopAsync when RCON is enabled
 if Rcon and Config.isRconEnabled() then
     if Query then Rcon.registerTickCallback(Query.writeIfDue) end
     if LiveMap then Rcon.registerTickCallback(LiveMap.writeIfDue) end
+    if POIScan then Rcon.registerTickCallback(POIScan.writeIfDue) end
     Rcon.registerTickCallback(runModTicks)
 else
     -- RCON disabled — standalone heartbeat
-    if Query or LiveMap then
+    if Query or LiveMap or POIScan then
         LoopAsync(5000, function()
             if Query then pcall(Query.writeIfDue) end
             if LiveMap then pcall(LiveMap.writeIfDue) end
+            if POIScan then pcall(POIScan.writeIfDue) end
             runModTicks()
             return false
         end)
@@ -483,7 +490,7 @@ end
 
 -- Module load summary
 local _modStatus = {}
-for _, name in ipairs({"Config", "Admin", "Query", "RCON", "LiveMap", "MapGen", "Mods"}) do
+for _, name in ipairs({"Config", "Admin", "Query", "RCON", "LiveMap", "MapGen", "POIScan", "Mods"}) do
     _modStatus[#_modStatus + 1] = name .. " " .. (WindrosePlus._modules[name] and "OK" or "-")
 end
 Log.info("Core", "Modules: " .. table.concat(_modStatus, ", "))
