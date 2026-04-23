@@ -60,7 +60,9 @@ Windrose dedicated servers don't respond to standard server queries, so your ser
 ```
 
 ### 2,400+ Server Settings & Multipliers
-Adjust XP, loot, stack sizes, crafting costs, crop speed, cooking/smelting speed, harvest yield, inventory size, points per level, carry weight, and more through a simple JSON file. Go deeper with 2,400+ individual INI settings for player stats, weapons, food effects, creature stats, co-op scaling, swimming, and rest bonuses.
+Adjust XP, loot, crafting costs, crop speed, cooking/smelting speed, harvest yield, inventory size, carry weight, and more through a simple JSON file. Go deeper with 2,400+ individual INI settings for player stats, weapons, food effects, creature stats, co-op scaling, swimming, and rest bonuses.
+
+> **Note on `stack_size` and `points_per_level`:** `stack_size` patches the server PAK but has no effect on vanilla clients — `MaxCountInSlot` is enforced client-side, so the knob only works if every connected client loads a matching PAK ([#17](https://github.com/HumanGenome/WindrosePlus/issues/17)). `points_per_level` is disabled as of v1.0.8 because it crashes the server on character login ([#20](https://github.com/HumanGenome/WindrosePlus/issues/20)); use `wp.givestats` instead to grant extra points.
 
 **Multipliers** (`windrose_plus.json`):
 ```json
@@ -132,11 +134,11 @@ end, "Greet all online players")
 External tools that don't run inside Lua can tail `windrose_plus_data/events.log` (line-delimited JSON, written on every player join/leave) for join/leave detection without polling.
 
 ### CPU Optimization
-Automatically reduces CPU usage when no players are connected. Restricts the server to 2 CPU cores when idle and restores full CPU access instantly when a player joins. On a 12-core machine this dropped idle CPU from 185% to 28%.
+Automatically reduces CPU usage when no players are connected. The bundled `IdleCpuLimiter` C++ mod applies an idle-only Windows CPU cap after the server has finished booting, then restores the full CPU budget instantly when a player joins. Process affinity is left unchanged.
 
 ```
-Mode: boot -> idle (0 players, 2 cores)
-Mode: idle -> active (player joined, all cores restored)
+[IdleCpuLimiter] applied idle CPU rate 200
+[IdleCpuLimiter] lifted idle CPU rate 10000
 ```
 
 ---

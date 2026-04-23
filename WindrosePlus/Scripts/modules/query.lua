@@ -10,7 +10,7 @@ Query._statusPath = nil
 Query._tmpPath = nil
 Query._config = nil
 Query._interval = 5
-Query._idleInterval = 30
+Query._idleInterval = 2
 Query._lastWrite = 0
 Query._serverInfo = nil
 
@@ -135,16 +135,6 @@ function Query._collectAndWrite()
     -- Mark boot complete on first successful write (server is fully loaded)
     if WindrosePlus and not WindrosePlus.state.bootComplete then
         WindrosePlus.state.bootComplete = true
-        -- Now that boot is done, trigger idle affinity if no players
-        if #players == 0 and WindrosePlus.state.mode == "idle" then
-            pcall(function()
-                local Log = require("modules.log")
-                Log.info("CPU", "Boot complete, applying deferred idle affinity")
-            end)
-            -- Re-trigger setMode to apply affinity now that bootComplete is true
-            WindrosePlus.state.mode = "boot" -- reset so setMode("idle") fires
-            WindrosePlus.setMode("idle")
-        end
     end
 
     -- Update global player count and fire join/leave events

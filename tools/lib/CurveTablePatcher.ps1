@@ -102,22 +102,26 @@ function Invoke-CurveTablePatch {
     $overrides = @{}
 
     if ($Config.ContainsKey("multipliers")) {
-        foreach ($key in $Config.multipliers.PSObject.Properties.Name) {
-            $multipliers[$key] = [double]$Config.multipliers.$key
+        if ($Config.multipliers -is [hashtable]) {
+            foreach ($key in $Config.multipliers.Keys) {
+                $multipliers[$key] = [double]$Config.multipliers[$key]
+            }
+        } else {
+            foreach ($key in $Config.multipliers.PSObject.Properties.Name) {
+                $multipliers[$key] = [double]$Config.multipliers.$key
+            }
         }
     }
     if ($Config.ContainsKey("overrides")) {
-        foreach ($key in $Config.overrides.PSObject.Properties.Name) {
-            $overrides[$key] = [double]$Config.overrides.$key
+        if ($Config.overrides -is [hashtable]) {
+            foreach ($key in $Config.overrides.Keys) {
+                $overrides[$key] = [double]$Config.overrides[$key]
+            }
+        } else {
+            foreach ($key in $Config.overrides.PSObject.Properties.Name) {
+                $overrides[$key] = [double]$Config.overrides.$key
+            }
         }
-    }
-
-    # Also handle when Config comes as plain hashtable (not PSCustomObject)
-    if ($Config.ContainsKey("multipliers") -and $Config.multipliers -is [hashtable]) {
-        $multipliers = $Config.multipliers
-    }
-    if ($Config.ContainsKey("overrides") -and $Config.overrides -is [hashtable]) {
-        $overrides = $Config.overrides
     }
 
     $changes = [System.Collections.ArrayList]::new()

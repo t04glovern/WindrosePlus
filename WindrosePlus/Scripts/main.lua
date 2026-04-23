@@ -3,7 +3,7 @@
 
 -- Global namespace — shared with all modules and third-party mods
 WindrosePlus = {
-    VERSION = "1.0.7",
+    VERSION = "1.0.8",
     state = {
         playerCount = 0,
         mode = "boot",           -- starts as "boot", transitions to "idle" or "active"
@@ -54,102 +54,10 @@ function WindrosePlus._isConnected(pc)
     return hasActivePing
 end
 
--- CPU affinity management: restrict idle servers to 2 cores, restore on player join
--- Detects core count dynamically — works on 8, 12, 16-core machines with or without HT
-local _cpuAffinity = {
-    totalCores = nil,   -- detected on first use
-    fullMask = nil,     -- all cores enabled
-    idleMask = nil,     -- 2 cores only
-    pid = nil,          -- game server PID
-    currentMode = nil,  -- "full" or "idle"
-}
-
-function _cpuAffinity.init()
-    if _cpuAffinity.totalCores and _cpuAffinity.pid then return true end
-    if _cpuAffinity._initFailed then return false end  -- don't retry after failure
-    -- Detect logical processor count via environment variable (faster than wmic subprocess)
-    local envCores = os.getenv("NUMBER_OF_PROCESSORS")
-    local cores = envCores and tonumber(envCores)
-    if not cores then
-        -- Env var not available — skip CPU affinity (no wmic fallback to avoid CMD flash)
-        Log.warn("CPU", "NUMBER_OF_PROCESSORS not set, CPU affinity disabled")
-        _cpuAffinity._initFailed = true
-        return false
-    end
-    if cores then
-        _cpuAffinity.totalCores = cores
-        _cpuAffinity.fullMask = (2 ^ cores) - 1
-        -- Idle mask: 2 random cores (skip core 0 — reserved for OS/single-threaded tasks)
-        math.randomseed(os.time() + (tonumber(tostring({}):match("0x(%x+)")) or 0))
-        local available = {}
-        for i = 1, cores - 1 do available[#available + 1] = i end
-        for i = #available, 2, -1 do
-            local j = math.random(i)
-            available[i], available[j] = available[j], available[i]
-        end
-        _cpuAffinity.idleMask = (2 ^ available[1]) + (2 ^ available[2])
-        Log.info("CPU", "Idle cores: " .. available[1] .. " + " .. available[2] .. " (mask 0x" .. string.format("%X", _cpuAffinity.idleMask) .. ")")
-        Log.info("CPU", "Detected " .. cores .. " logical cores (full mask: 0x" .. string.format("%X", _cpuAffinity.fullMask) .. ")")
-    end
-    -- PID detection not needed — affinity uses signal file approach
-    -- The PHP endpoint reads the signal file and detects the PID itself
-    _cpuAffinity.pid = true  -- sentinel: signal file approach doesn't need actual PID
-    local success = _cpuAffinity.totalCores ~= nil
-    if not success then _cpuAffinity._initFailed = true end
-    return success
-end
-
-function _cpuAffinity._setMask(mask, label)
-    -- Write a signal file with just the mask — PHP endpoint detects PID and applies it
-    -- (UE4SS can't run io.popen or os.execute reliably from timer callbacks)
-    local gd = WindrosePlus._gameDir
-    if not gd then return end
-    local sigPath = gd .. "windrose_plus_data\\affinity_request.txt"
-    local f = io.open(sigPath, "w")
-    if f then
-        f:write(mask .. "\n" .. gd .. "\n")
-        f:close()
-    end
-    _cpuAffinity.currentMode = label
-    Log.info("CPU", label .. ": requested affinity 0x" .. string.format("%X", mask))
-end
-
-function _cpuAffinity.setIdle()
-    if not _cpuAffinity.init() then return end
-    if _cpuAffinity.currentMode == "idle" then return end
-    _cpuAffinity._setMask(_cpuAffinity.idleMask, "idle")
-end
-
-function _cpuAffinity.setFull()
-    if not _cpuAffinity.init() then return end
-    if _cpuAffinity.currentMode == "full" then return end
-    _cpuAffinity._setMask(_cpuAffinity.fullMask, "full")
-end
-
 function WindrosePlus.setMode(newMode)
     if WindrosePlus.state.mode ~= newMode then
         WindrosePlus.state.mode = newMode
         Log.info("Core", "Mode: " .. newMode)
-        -- Adjust CPU affinity based on mode
-        local _afLog = function(msg)
-            Log.info("CPU", msg)
-            pcall(function()
-                local gd = WindrosePlus._gameDir
-                if gd then
-                    local f = io.open(gd .. "windrose_plus_data\\cpu_affinity.log", "a")
-                    if f then f:write(os.date() .. " " .. msg .. "\n"); f:close() end
-                end
-            end)
-        end
-        -- Defer affinity changes to the next tick (io.popen deadlocks if called
-        -- from inside Query._collectAndWrite → updatePlayerCount → setMode chain)
-        if newMode == "idle" and WindrosePlus.state.bootComplete then
-            _cpuAffinity._pending = "idle"
-            _afLog("Queued idle affinity for next tick")
-        elseif newMode == "active" then
-            _cpuAffinity._pending = "full"
-            _afLog("Queued full affinity for next tick")
-        end
     end
 end
 
@@ -164,10 +72,11 @@ function WindrosePlus.updatePlayerCount(count)
         -- Transition to idle after 6 consecutive 0-player writes (~30s)
         -- Higher threshold prevents false idle during player connect/disconnect lag
         if WindrosePlus.state._idleTransitionCount >= 6 then
+            local wasIdle = WindrosePlus.isIdle()
             WindrosePlus.setMode("idle")
             -- Force immediate status write so dashboards see 0 players right away
             -- (otherwise the 30s idle interval delays the update)
-            if Query and Query.forceWrite then pcall(Query.forceWrite) end
+            if not wasIdle and Query and Query.forceWrite then pcall(Query.forceWrite) end
         end
     end
 end
@@ -205,7 +114,7 @@ local function detectGameDir()
 end
 
 local gameDir = detectGameDir()
-WindrosePlus._gameDir = gameDir  -- expose for CPU affinity (defined before gameDir is in scope)
+WindrosePlus._gameDir = gameDir
 Log.info("Core", "Game dir: " .. gameDir)
 
 -- ------------
@@ -455,16 +364,6 @@ local function runModTicks()
             pcall(entry.fn)
         end
     end
-    -- Process deferred CPU affinity changes (can't run io.popen inside Query write chain)
-    if _cpuAffinity._pending then
-        local action = _cpuAffinity._pending
-        _cpuAffinity._pending = nil
-        if action == "idle" then
-            pcall(_cpuAffinity.setIdle)
-        elseif action == "full" then
-            pcall(_cpuAffinity.setFull)
-        end
-    end
 end
 
 -- Load third-party mods (AFTER API is populated so mods can use it)
@@ -539,7 +438,7 @@ RegisterHook("/Script/R5.R5MovementComponent:ServerSaveMoveInput", function()
     if WindrosePlus.isIdle() then
         WindrosePlus.setMode("active")
     end
-    if Query then pcall(Query.writeIfDue) end
+    if Query then pcall(Query.forceWrite) end
     if LiveMap then pcall(LiveMap.writeIfDue) end
 end)
 
@@ -580,16 +479,6 @@ end
 -- ------------
 -- Startup complete
 -- ------------
-
--- Set idle CPU affinity at startup (server boots with 0 players)
--- Uses deferred LoopAsync so the game process is fully initialized first
-LoopAsync(15000, function()
-    if WindrosePlus.state.playerCount == 0 then
-        WindrosePlus.state.bootComplete = true
-        pcall(_cpuAffinity.setIdle)
-    end
-    return true  -- run once only
-end)
 
 -- Module load summary
 local _modStatus = {}

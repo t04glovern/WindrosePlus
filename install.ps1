@@ -130,14 +130,20 @@ if (Test-Path -LiteralPath $modSource) {
                 Copy-Item $_.FullName (Join-Path $modDest $_.Name) -Force
             }
         }
-        # Install HeightmapExporter if included
-        $hmeSrc = Join-Path $scriptDir "cpp-mods\HeightmapExporter\HeightmapExporter.dll"
-        if (Test-Path -LiteralPath $hmeSrc) {
-            $hmeDest = Join-Path $modsDir "HeightmapExporter\dlls"
-            if (-not (Test-Path -LiteralPath $hmeDest)) { New-Item -ItemType Directory -Path $hmeDest -Force | Out-Null }
-            Copy-Item $hmeSrc (Join-Path $hmeDest "main.dll") -Force
-            $hmeEnabled = Join-Path $modsDir "HeightmapExporter\enabled.txt"
-            if (-not (Test-Path -LiteralPath $hmeEnabled)) { Set-Content $hmeEnabled "1" }
+        # Install bundled C++ mods if included
+        $cppMods = @(
+            @{ Name = "HeightmapExporter"; Source = "cpp-mods\HeightmapExporter\HeightmapExporter.dll" },
+            @{ Name = "IdleCpuLimiter"; Source = "cpp-mods\IdleCpuLimiter\IdleCpuLimiter.dll" }
+        )
+        foreach ($cppMod in $cppMods) {
+            $dllSrc = Join-Path $scriptDir $cppMod.Source
+            if (Test-Path -LiteralPath $dllSrc) {
+                $dllDest = Join-Path $modsDir "$($cppMod.Name)\dlls"
+                if (-not (Test-Path -LiteralPath $dllDest)) { New-Item -ItemType Directory -Path $dllDest -Force | Out-Null }
+                Copy-Item $dllSrc (Join-Path $dllDest "main.dll") -Force
+                $enabledPath = Join-Path $modsDir "$($cppMod.Name)\enabled.txt"
+                if (-not (Test-Path -LiteralPath $enabledPath)) { Set-Content $enabledPath "1" }
+            }
         }
 
         Write-Host " done" -ForegroundColor Green
@@ -157,8 +163,22 @@ if (Test-Path -LiteralPath $modsTxt) {
     if ($content -notmatch "WindrosePlus") {
         Add-Content $modsTxt "`nWindrosePlus : 1`n"
     }
+    foreach ($cppModName in @("HeightmapExporter", "IdleCpuLimiter")) {
+        $cppMainDll = Join-Path $modsDir "$cppModName\dlls\main.dll"
+        if ((Test-Path -LiteralPath $cppMainDll) -and $content -notmatch $cppModName) {
+            Add-Content $modsTxt "$cppModName : 1`n"
+            $content += "`n$cppModName : 1`n"
+        }
+    }
 } else {
-    Set-Content $modsTxt "WindrosePlus : 1`n"
+    $modsContent = "WindrosePlus : 1`n"
+    foreach ($cppModName in @("HeightmapExporter", "IdleCpuLimiter")) {
+        $cppMainDll = Join-Path $modsDir "$cppModName\dlls\main.dll"
+        if (Test-Path -LiteralPath $cppMainDll) {
+            $modsContent += "$cppModName : 1`n"
+        }
+    }
+    Set-Content $modsTxt $modsContent
 }
 
 # Step 3: Set up dashboard

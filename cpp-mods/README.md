@@ -6,6 +6,11 @@ This directory contains C++ mods built against the [UE4SS](https://github.com/UE
 
 You do **not** need to build these yourself. Download the pre-built DLLs from the [GitHub Releases](https://github.com/HumanGenome/WindrosePlus/releases) page and drop them into your UE4SS `Mods/` folder.
 
+## Included Mods
+
+- `HeightmapExporter` exports terrain height data for the live map.
+- `IdleCpuLimiter` lowers idle dedicated-server CPU usage with a Windows Job Object CPU cap and automatically removes the cap when players are present.
+
 ## Building from Source (Contributors)
 
 ### Prerequisites

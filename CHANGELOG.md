@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.8] - 2026-04-23
+
+### Fixed
+
+- **`points_per_level` multiplier disabled — character-corruption crash ([#20](https://github.com/HumanGenome/WindrosePlus/issues/20), [#4](https://github.com/HumanGenome/WindrosePlus/issues/4)).** Patching `TalentPointsReward` / `StatPointsReward` / `PointsReward` / `SkillPoints` / `AttributePoints` in `DA_HeroLevels.json` caused the engine's `R5BLPlayer_ValidateData` rule to fail `RewardLevel < CurrentLevel`, crashing the server with `R5GameProblems.cpp:211` the moment the affected character tried to join. Isolated to a single-file PAK with `pts=3` alone on a virgin world — still crashes. `MultiplierPakBuilder.ps1` now skips the `points_per_level` patch path entirely; config still accepts the key for future re-enablement but applies no modifications. `wp.givestats` remains the supported way to grant extra points.
+- **Surface AV-quarantine as the cause when `repak.exe` / `retoc.exe` are missing ([#19](https://github.com/HumanGenome/WindrosePlus/issues/19)).** `WindrosePlus-BuildPak.ps1` now detects a missing binary under `tools\bin\` and explicitly calls out Windows Defender / third-party AV quarantine as the most likely cause, with allowlist instructions.
+- **Idle Windrose servers no longer burn full CPU cores while waiting for players.** Replaced the old affinity-based idle optimizer with a C++ `IdleCpuLimiter` UE4SS mod that applies a Windows Job Object CPU hard cap only while the server is confirmed idle. The default idle cap is 2% total CPU, the cap is lifted automatically when players are present, the process keeps its full CPU affinity mask, and the limiter fails open if player status is missing or stale.
+- **Removed the Lua affinity signal path.** Windrose+ no longer writes affinity request files or changes process affinity when servers enter idle/active mode.
+- **Fixed idle status recursion.** The zero-player transition no longer re-enters the status writer repeatedly, and idle status checks now stay frequent enough to lift the CPU cap quickly when activity appears.
+
+### Added
+
+- **Bundled `IdleCpuLimiter.dll` in releases and the installer.** Fresh installs and upgrades now place it under `ue4ss\Mods\IdleCpuLimiter\dlls\main.dll` and enable it in `mods.txt`.
+
+### Known Issues
+
+- **`stack_size` multiplier has no in-game effect ([#17](https://github.com/HumanGenome/WindrosePlus/issues/17)).** Server-side PAK patching of `InventoryItemGppData.MaxCountInSlot` is overridden by client-side caps; the knob requires a matching client mod to take effect. The setting is still accepted in config for server operators who distribute a matching client PAK, but it will not change stack caps for vanilla clients.
+
 ## [1.0.7] - 2026-04-19
 
 ### Fixed
@@ -98,6 +116,7 @@ Initial public release.
 - **Lua mod API** — custom commands, player events, tick callbacks, hot-reload
 - **Automated installer** — auto-detects game folder, downloads UE4SS, preserves configs on update
 
+[1.0.8]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.8
 [1.0.7]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.7
 [1.0.4]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.4
 [1.0.3]: https://github.com/HumanGenome/WindrosePlus/releases/tag/v1.0.3

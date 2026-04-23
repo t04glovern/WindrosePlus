@@ -12,8 +12,37 @@ permissions:
   contents: write
 
 jobs:
+  build-idle-cpu-limiter:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch UE4SS SDK
+        shell: pwsh
+        run: git clone --depth 1 https://github.com/UE4SS-RE/RE-UE4SS.git cpp-mods/RE-UE4SS
+
+      - name: Build IdleCpuLimiter
+        shell: pwsh
+        run: |
+          cmake -B cpp-mods/build -S cpp-mods -G "Visual Studio 17 2022" -A x64
+          cmake --build cpp-mods/build --config Game__Shipping__Win64 --target IdleCpuLimiter
+          Copy-Item cpp-mods/build/IdleCpuLimiter/Game__Shipping__Win64/IdleCpuLimiter.dll cpp-mods/IdleCpuLimiter/IdleCpuLimiter.dll -Force
+          if (-not (Test-Path cpp-mods/IdleCpuLimiter/IdleCpuLimiter.dll)) {
+            throw "IdleCpuLimiter.dll was not built"
+          }
+
+      - name: Upload IdleCpuLimiter artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IdleCpuLimiter
+          path: cpp-mods/IdleCpuLimiter/IdleCpuLimiter.dll
+          if-no-files-found: error
+
   build-and-release:
     runs-on: ubuntu-latest
+    needs: build-idle-cpu-limiter
 
     env:
       # Pinned tool versions. Bump here (and rerun the release tag) to upgrade.
@@ -73,6 +102,17 @@ jobs:
             -o cpp-mods/HeightmapExporter/HeightmapExporter.dll
           test -s cpp-mods/HeightmapExporter/HeightmapExporter.dll
 
+      - name: Download IdleCpuLimiter.dll
+        uses: actions/download-artifact@v4
+        with:
+          name: IdleCpuLimiter
+          path: cpp-mods/IdleCpuLimiter
+
+      - name: Verify C++ mod DLLs
+        run: |
+          test -s cpp-mods/HeightmapExporter/HeightmapExporter.dll
+          test -s cpp-mods/IdleCpuLimiter/IdleCpuLimiter.dll
+
       - name: Extract release notes from CHANGELOG
         id: notes
         run: |
@@ -131,4 +171,5 @@ jobs:
             --title "Windrose+ $TAG" \
             --notes-file release_notes.md \
             WindrosePlus.zip \
-            cpp-mods/HeightmapExporter/HeightmapExporter.dll
+            cpp-mods/HeightmapExporter/HeightmapExporter.dll \
+            cpp-mods/IdleCpuLimiter/IdleCpuLimiter.dll
