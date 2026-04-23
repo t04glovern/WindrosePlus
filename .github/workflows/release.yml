@@ -21,7 +21,10 @@ jobs:
 
       - name: Fetch UE4SS SDK
         shell: pwsh
-        run: git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/UE4SS-RE/RE-UE4SS.git cpp-mods/RE-UE4SS
+        run: |
+          # UE4SS declares its submodules with ssh:// URLs; rewrite to https:// so the CI runner (no SSH key) can clone them.
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/UE4SS-RE/RE-UE4SS.git cpp-mods/RE-UE4SS
 
       - name: Build IdleCpuLimiter
         shell: pwsh
