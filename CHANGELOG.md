@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.16] - 2026-04-24
+
+### Fixed
+
+- **Removed disk I/O and UObject walks from the per-player movement hook.** `ServerSaveMoveInput` no longer drives `Query.forceWrite`, `LiveMap.writeIfDue`, or `POIScan.writeIfDue` directly. Those writers ran on the game thread once per second whenever any player was moving, performing `FindAllOf("PlayerController")` / `FindAllOf("Pawn")` / `FindAllOf("R5MineralNode")` walks plus 4 disk operations per write — visible as tick-time hitches on populated servers. The hook now only flips active-mode state; the existing 2 s `LoopAsync` loop drives writes.
+- **Inverted Query idle cadence.** `Query._idleInterval` was 2 s while the active interval was 5 s, so empty servers wrote `server_status.json` and re-read `ServerDescription.json` 2.5x more often than populated ones. Idle interval is now 30 s; active stays at 5 s.
+- **Dispatched UObject reads to the game thread.** `Query.writeIfDue`, `LiveMap.writeIfDue`, and `POIScan.writeIfDue` are now scheduled via UE4SS `ExecuteInGameThread` from the async loop, with per-writer coalescing so a backed-up game thread cannot queue duplicate work. Previously these ran directly on UE4SS' async thread and could race the game thread's iteration of `FindAllOf` results — most races silently returned nil under `pcall`, but races against in-flight GC could crash the server.
+- **POIScan no longer retries a failed scan every tick.** Added an in-flight guard so the game-thread and async-thread paths cannot run the scan simultaneously, plus a 60 s backoff after any failed scan. Previously a single failed `json.encode` or `io.open` would re-run the full `FindAllOf("Actor")` walk on every subsequent tick (game thread 1 Hz + async loop 0.5 Hz) until a successful scan landed. Manual trigger files still bypass the refresh-interval gate but no longer bypass the backoff, so a stuck trigger cannot spam scans.
+- **POIScan write integrity.** `_scanAndWrite` now checks return values from `f:close`, `os.rename`, and the trigger-file `os.remove`, so a silent write failure can't mark the scan as succeeded and a stuck trigger file is logged instead of looping.
+- **Idle-transition force-write actually runs now.** `WindrosePlus.updatePlayerCount` referenced an undefined `Query` global (the local `Query` declaration appears later in the file), so the active→idle transition write was a silent no-op since the function was added. Now resolved through `WindrosePlus._modules.Query` at call time, so 0-player dashboards reflect the empty state within ~2 s of the last player leaving instead of waiting for the next idle write.
+
 ## [1.0.15] - 2026-04-24
 
 ### Removed
