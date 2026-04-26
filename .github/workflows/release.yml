@@ -22,6 +22,11 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/windrose-heal -> target
+
       - name: Test windrose-heal
         run: cargo test --manifest-path tools/windrose-heal/Cargo.toml
 
