@@ -122,6 +122,15 @@ if (Test-Path -LiteralPath $jsonPath) {
     }
 }
 
+# Normalize legacy craft_cost -> craft_efficiency before any downstream consumer
+# (hasMultipliers gate, status checks, Build-MultiplierPak math)
+if ($multipliers.ContainsKey("craft_cost")) {
+    if (-not $multipliers.ContainsKey("craft_efficiency")) {
+        $multipliers["craft_efficiency"] = $multipliers["craft_cost"]
+    }
+    $null = $multipliers.Remove("craft_cost")
+}
+
 # --- Read INI (CurveTables only) ---
 $iniConfig = $null
 $hasIniConfig = $false
@@ -419,8 +428,15 @@ if ($hasCT) {
                 if (-not $matched) { $unmatchedPatterns += $pattern }
             }
             if ($unmatchedPatterns.Count -gt 0) {
-                Write-Error "CurveTable config for $basename has row patterns that did not match this Windrose build: $($unmatchedPatterns -join ', ')"
-                exit 3
+                Write-Warning "CurveTable ${basename}: skipping row patterns not present in this Windrose build (likely renamed by a recent game update): $($unmatchedPatterns -join ', ')"
+                foreach ($pattern in $unmatchedPatterns) {
+                    $null = $tableOverrides.overrides.Remove($pattern)
+                }
+                if ($tableOverrides.overrides.Count -eq 0) {
+                    Write-Host "    All overrides for $basename were unmatched - skipping table" -ForegroundColor DarkGray
+                    $null = $pendingCtTables.Remove($basename)
+                    continue
+                }
             }
 
             $configHT = @{ overrides = $tableOverrides.overrides }

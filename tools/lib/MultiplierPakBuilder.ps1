@@ -173,8 +173,9 @@ function Build-MultiplierPak {
     and repacking.
 
     .PARAMETER Config
-    Hashtable with multiplier values: loot, xp, stack_size, craft_cost, crop_speed, weight.
-    Values of 1.0 are skipped (no change).
+    Hashtable with multiplier values: loot, xp, stack_size, craft_efficiency, crop_speed, weight.
+    Values of 1.0 are skipped (no change). The legacy key craft_cost is accepted with
+    identical semantics and normalized to craft_efficiency at function entry.
 
     .PARAMETER AesKey
     The game's AES encryption key for pak access.
@@ -202,6 +203,15 @@ function Build-MultiplierPak {
         Error = $null
     }
 
+    # Normalize legacy craft_cost -> craft_efficiency before any downstream read,
+    # so non-default counters and the math below see a single canonical key.
+    if ($Config.ContainsKey("craft_cost")) {
+        if (-not $Config.ContainsKey("craft_efficiency")) {
+            $Config["craft_efficiency"] = $Config["craft_cost"]
+        }
+        $null = $Config.Remove("craft_cost")
+    }
+
     $effectiveNonDefaultMultipliers = 0
     foreach ($entry in $Config.GetEnumerator()) {
         if ($entry.Key -eq "points_per_level") { continue }
@@ -223,7 +233,7 @@ function Build-MultiplierPak {
     $loot = if ($Config.ContainsKey("loot")) { [double]$Config.loot } else { 1.0 }
     $xp = if ($Config.ContainsKey("xp")) { [double]$Config.xp } else { 1.0 }
     $stackSize = if ($Config.ContainsKey("stack_size")) { [double]$Config.stack_size } else { 1.0 }
-    $craftCost = if ($Config.ContainsKey("craft_cost")) { [double]$Config.craft_cost } else { 1.0 }
+    $craftEfficiency = if ($Config.ContainsKey("craft_efficiency")) { [double]$Config.craft_efficiency } else { 1.0 }
     $cropSpeed = if ($Config.ContainsKey("crop_speed")) { [double]$Config.crop_speed } else { 1.0 }
     $weight = if ($Config.ContainsKey("weight")) { [double]$Config.weight } else { 1.0 }
     $invSize = if ($Config.ContainsKey("inventory_size")) { [double]$Config.inventory_size } else { 1.0 }
@@ -236,7 +246,7 @@ function Build-MultiplierPak {
     $loot = [Math]::Max(0.01, $loot)
     $xp = [Math]::Max(0.01, $xp)
     $stackSize = [Math]::Max(0.01, $stackSize)
-    $craftCost = [Math]::Max(0.01, $craftCost)
+    $craftEfficiency = [Math]::Max(0.01, $craftEfficiency)
     $cropSpeed = [Math]::Max(0.01, $cropSpeed)
     $weight = [Math]::Max(0.01, $weight)
     $invSize = [Math]::Max(0.01, $invSize)
@@ -244,7 +254,7 @@ function Build-MultiplierPak {
     $cookSpeed = [Math]::Max(0.01, $cookSpeed)
     $harvestYield = [Math]::Max(0.01, $harvestYield)
 
-    $allDefault = ($loot -eq 1.0 -and $xp -eq 1.0 -and $stackSize -eq 1.0 -and $craftCost -eq 1.0 -and $cropSpeed -eq 1.0 -and $weight -eq 1.0 -and $invSize -eq 1.0 -and $pointsPerLvl -eq 1.0 -and $cookSpeed -eq 1.0 -and $harvestYield -eq 1.0)
+    $allDefault = ($loot -eq 1.0 -and $xp -eq 1.0 -and $stackSize -eq 1.0 -and $craftEfficiency -eq 1.0 -and $cropSpeed -eq 1.0 -and $weight -eq 1.0 -and $invSize -eq 1.0 -and $pointsPerLvl -eq 1.0 -and $cookSpeed -eq 1.0 -and $harvestYield -eq 1.0)
     if ($allDefault) {
         $result.Error = "All multipliers are 1.0 (default). Nothing to build."
         return $result
@@ -368,9 +378,10 @@ function Build-MultiplierPak {
             Write-Host "  Skipping stack_size/weight (disabled due to engine inventory validator crash)"
         }
 
-        # Crafting costs
-        if ($craftCost -ne 1.0) {
-            Write-Host "  Modifying recipe costs (${craftCost}x)..."
+        # Crafting efficiency: divide ingredient Count by efficiency multiplier so
+        # craft_efficiency 2.0 -> recipes cost half (more efficient).
+        if ($craftEfficiency -ne 1.0) {
+            Write-Host "  Modifying recipe costs (craft_efficiency ${craftEfficiency}x)..."
             $recipeFiles = Invoke-RepakList -Repak $repak -AesKey $AesKey -PakPath $pak -Filter "Recipes/"
             $recipeMod = 0
             foreach ($rf in $recipeFiles) {
@@ -381,7 +392,7 @@ function Build-MultiplierPak {
                 $changed = $false
                 foreach ($cost in $data.RecipeCost) {
                     if ($cost.Count -and $cost.Count -gt 0) {
-                        $cost.Count = [Math]::Max(1, [int]($cost.Count / $craftCost))
+                        $cost.Count = [Math]::Max(1, [int]($cost.Count / $craftEfficiency))
                         $changed = $true
                     }
                 }
@@ -449,7 +460,7 @@ function Build-MultiplierPak {
             $cookMod = 0
             foreach ($cf in $cookFiles) {
                 $fname = $cf.Trim()
-                # Reuse craft_cost output if it already wrote to this file
+                # Reuse craft_efficiency output if it already wrote to this file
                 $outPath = Join-Path $tmpDir $fname
                 if (Test-Path -LiteralPath $outPath) {
                     # Read explicit UTF-8 — Get-Content -Raw on PS 5.1 falls back to ANSI for BOM-less files.

@@ -31,6 +31,8 @@ function Config.reload()
 
     local ok, data = pcall(json.decode, content)
     if ok and type(data) == "table" then
+        -- Normalize legacy aliases before merging defaults so old keys carry their values forward
+        data = Config._normalizeAliases(data)
         -- Merge with defaults so missing keys don't cause nil errors
         Config._data = Config._mergeDefaults(data, Config._defaults())
         Log.info("Config", "Config loaded successfully")
@@ -39,6 +41,22 @@ function Config.reload()
         Log.warn("Config", "Using defaults")
         Config._data = Config._defaults()
     end
+end
+
+-- Translate legacy multiplier keys to their canonical names so downstream
+-- getters can read a single key. Mutates and returns the input table.
+function Config._normalizeAliases(data)
+    if type(data) ~= "table" or type(data.multipliers) ~= "table" then return data end
+    local m = data.multipliers
+    if m.craft_cost ~= nil then
+        if m.craft_efficiency == nil then
+            m.craft_efficiency = m.craft_cost
+        elseif tonumber(m.craft_efficiency) ~= tonumber(m.craft_cost) then
+            Log.warn("Config", "Both craft_efficiency and craft_cost set with different values; using craft_efficiency=" .. tostring(m.craft_efficiency))
+        end
+        m.craft_cost = nil
+    end
+    return data
 end
 
 function Config.get(section, key)
@@ -103,9 +121,11 @@ function Config.getStackSizeMultiplier()
     return Config._clampFloat(Config.get("multipliers", "stack_size"), 1.0, 0.1, 100.0, "stack_size")
 end
 
-function Config.getCraftCostMultiplier()
-    return Config._clampFloat(Config.get("multipliers", "craft_cost"), 1.0, 0.1, 100.0, "craft_cost")
+function Config.getCraftEfficiencyMultiplier()
+    return Config._clampFloat(Config.get("multipliers", "craft_efficiency"), 1.0, 0.1, 100.0, "craft_efficiency")
 end
+-- Back-compat function alias for any downstream caller that still uses the old name
+Config.getCraftCostMultiplier = Config.getCraftEfficiencyMultiplier
 
 function Config.getCropSpeedMultiplier()
     return Config._clampFloat(Config.get("multipliers", "crop_speed"), 1.0, 0.1, 100.0, "crop_speed")
@@ -157,7 +177,7 @@ function Config._defaults()
         rcon = { enabled = false, port = 27320, password = "" },
         query = { enabled = true, interval_ms = 5000 },
         admin = { steam_ids = {} },
-        multipliers = { xp = 1.0, loot = 1.0, stack_size = 1.0, craft_cost = 1.0, crop_speed = 1.0, weight = 1.0, inventory_size = 1.0, cooking_speed = 1.0, harvest_yield = 1.0 },
+        multipliers = { xp = 1.0, loot = 1.0, stack_size = 1.0, craft_efficiency = 1.0, crop_speed = 1.0, weight = 1.0, inventory_size = 1.0, cooking_speed = 1.0, harvest_yield = 1.0 },
         features = { unlock_all_recipes = false, unlock_all_ships = false },
         debug = { log_level = "info" }
     }

@@ -38,7 +38,7 @@ Players: 3
 Loot: 2x
 XP: 3x
 Stack Size: 5x
-Craft Cost: 0.5x
+Craft Efficiency: 2x
 Crop Speed: 2x
 Weight: 5x
 Windrose+ v1.0.0
@@ -71,7 +71,7 @@ WindrosePlus Config:
   Loot: 2x
   XP: 3x
   Stack Size: 5x
-  Craft Cost: 0.5x
+  Craft Efficiency: 2x
   Crop Speed: 2x
   Weight: 5x
   RCON: enabled
@@ -92,7 +92,7 @@ Multipliers:
   Loot: 2x
   XP: 3x
   Stack Size: 5x
-  Craft Cost: 0.5x
+  Craft Efficiency: 2x
   Crop Speed: 2x
   Weight: 5x
 ```

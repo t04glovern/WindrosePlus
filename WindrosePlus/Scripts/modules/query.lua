@@ -189,7 +189,8 @@ function Query._collectAndWrite()
             xp = Query._config.getXpMultiplier(),
             loot = Query._config.getLootMultiplier(),
             stack_size = Query._config.getStackSizeMultiplier(),
-            craft_cost = Query._config.getCraftCostMultiplier(),
+            craft_efficiency = Query._config.getCraftEfficiencyMultiplier(),
+            craft_cost = Query._config.getCraftEfficiencyMultiplier(), -- DEPRECATED, removed in v1.2 (kept for old dashboards)
             crop_speed = Query._config.getCropSpeedMultiplier(),
             weight = Query._config.getWeightMultiplier(),
             inventory_size = Query._config.getInventorySizeMultiplier(),

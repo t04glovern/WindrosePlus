@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.1.0] - 2026-04-26
+
+### Changed
+
+- **Renamed the `craft_cost` multiplier to `craft_efficiency` ([#40](https://github.com/HumanGenome/WindrosePlus/issues/40)).** The implementation has always interpreted higher values as cheaper recipes (`2.0` halves ingredient counts, `0.5` doubles them) — same convention as `xp`, `loot`, and `crop_speed` where higher means a better outcome for the player. Older docs described the same setting as cost scaling, which led readers to set `0.5` expecting half cost and instead getting double cost. The rename closes that gap. The legacy key `craft_cost` is still accepted with identical semantics, so existing configs keep working without edits.
+
+  ```
+  Old key (still works)     New key (recommended)        Effect
+  craft_cost = 2.0          craft_efficiency = 2.0       Recipes cost half (more efficient)
+  craft_cost = 0.5          craft_efficiency = 0.5       Recipes cost double (less efficient)
+  ```
+
+### Fixed
+
+- **PAK builder no longer hard-fails when a CurveTable row pattern doesn't match a row in the live game pak ([#39](https://github.com/HumanGenome/WindrosePlus/issues/39)).** When Windrose ships a game update that renames a row name, every customer with an `.ini` override targeting that row had their server unable to start. The builder now emits a warning, drops the unmatched pattern, and continues with the rest of the table. If every override for a table is unmatched, the table is skipped entirely. Thanks to ismenc for the diagnostic output that pinpointed `HealthModifier` in `CT_Mob_StatCorrection_CoopBased` as the renamed row.
+
+### Documentation
+
+- Added `xp` to the cross-server portability warning in the README ([#16](https://github.com/HumanGenome/WindrosePlus/issues/16)). Characters levelled with non-default `xp` may fail to join other servers running stock multipliers, in the same client-authoritative bucket as `stack_size`. Keep `xp = 1` if you expect cross-server portability.
+
 ## [1.0.21] - 2026-04-26
 
 ### Fixed

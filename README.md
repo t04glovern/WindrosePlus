@@ -62,7 +62,7 @@ Windrose dedicated servers don't respond to standard server queries, so your ser
   ],
   "multipliers": {
     "xp": 3.0, "loot": 2.0, "stack_size": 5.0,
-    "craft_cost": 0.5, "crop_speed": 2.0, "weight": 5.0
+    "craft_efficiency": 2.0, "crop_speed": 2.0, "weight": 5.0
   }
 }
 ```
@@ -70,7 +70,7 @@ Windrose dedicated servers don't respond to standard server queries, so your ser
 ### 2,400+ Server Settings & Multipliers
 Adjust XP, loot, crafting costs, crop speed, cooking/smelting speed, harvest yield, inventory size, carry weight, and more through a simple JSON file. Go deeper with 2,400+ individual INI settings for player stats, weapons, food effects, creature stats, co-op scaling, swimming, and rest bonuses.
 
-> **Note on `stack_size` and `points_per_level`:** `stack_size` patches the server PAK but has no effect on vanilla clients — `MaxCountInSlot` is enforced client-side, so the knob only works if every connected client loads a matching PAK ([#17](https://github.com/HumanGenome/WindrosePlus/issues/17)). `points_per_level` is disabled as of v1.0.8 because it crashes the server on character login ([#20](https://github.com/HumanGenome/WindrosePlus/issues/20)). `wp.givestats` only records an audit note; it does not change a character in-game.
+> **Note on `stack_size`, `xp`, and `points_per_level`:** `stack_size` patches the server PAK but has no effect on vanilla clients — `MaxCountInSlot` is enforced client-side, so the knob only works if every connected client loads a matching PAK ([#17](https://github.com/HumanGenome/WindrosePlus/issues/17)). `xp` modifies character progression in a way that can prevent those characters from joining other servers running stock multipliers ([#16](https://github.com/HumanGenome/WindrosePlus/issues/16)) — keep it default if you expect cross-server portability. `points_per_level` is disabled as of v1.0.8 because it crashes the server on character login ([#20](https://github.com/HumanGenome/WindrosePlus/issues/20)). `wp.givestats` only records an audit note; it does not change a character in-game.
 
 > **Save-safety warning:** `inventory_size`, `stack_size`, `weight`, and other inventory-affecting PAK edits can become part of player save state once a character logs in and saves. Take an out-of-band save backup before enabling them. Windrose+ now refuses to build these high-risk multiplier PAKs when another installed PAK also edits inventory assets, and removes the existing generated multiplier PAK on that failure, unless an advanced admin deliberately sets `WINDROSEPLUS_ALLOW_PAK_CONFLICTS=1`.
 
@@ -80,7 +80,7 @@ Adjust XP, loot, crafting costs, crop speed, cooking/smelting speed, harvest yie
   "xp": 3.0,
   "loot": 2.0,
   "stack_size": 5.0,
-  "craft_cost": 0.5,
+  "craft_efficiency": 2.0,
   "crop_speed": 2.0,
   "cooking_speed": 2.0,
   "harvest_yield": 2.0,

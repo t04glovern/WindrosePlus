@@ -1230,7 +1230,7 @@
                 document.getElementById('mult-loot').textContent = m.loot != null ? m.loot + 'x' : '-';
                 document.getElementById('mult-xp').textContent = m.xp != null ? m.xp + 'x' : '-';
                 document.getElementById('mult-stack').textContent = m.stack_size != null ? m.stack_size + 'x' : '-';
-                document.getElementById('mult-craft').textContent = m.craft_cost != null ? m.craft_cost + 'x' : '-';
+                document.getElementById('mult-craft').textContent = (m.craft_efficiency ?? m.craft_cost) != null ? (m.craft_efficiency ?? m.craft_cost) + 'x' : '-';
                 document.getElementById('mult-crop').textContent = m.crop_speed != null ? m.crop_speed + 'x' : '-';
                 document.getElementById('mult-cooking').textContent = m.cooking_speed != null ? m.cooking_speed + 'x' : '-';
                 document.getElementById('mult-weight').textContent = m.weight != null ? m.weight + 'x' : '-';

@@ -141,7 +141,7 @@ function Admin._registerCommands()
                 "Loot: " .. Admin._config.getLootMultiplier() .. "x",
                 "XP: " .. Admin._config.getXpMultiplier() .. "x",
                 "Stack Size: " .. Admin._config.getStackSizeMultiplier() .. "x",
-                "Craft Cost: " .. Admin._config.getCraftCostMultiplier() .. "x",
+                "Craft Efficiency: " .. Admin._config.getCraftEfficiencyMultiplier() .. "x",
                 "Crop Speed: " .. Admin._config.getCropSpeedMultiplier() .. "x",
                 "Weight: " .. Admin._config.getWeightMultiplier() .. "x",
                 "WindrosePlus v" .. (WindrosePlus and WindrosePlus.VERSION or "?")
@@ -808,7 +808,7 @@ function Admin._registerCommands()
             table.insert(lines, "  Loot: " .. Admin._config.getLootMultiplier() .. "x")
             table.insert(lines, "  XP: " .. Admin._config.getXpMultiplier() .. "x")
             table.insert(lines, "  Stack Size: " .. Admin._config.getStackSizeMultiplier() .. "x")
-            table.insert(lines, "  Craft Cost: " .. Admin._config.getCraftCostMultiplier() .. "x")
+            table.insert(lines, "  Craft Efficiency: " .. Admin._config.getCraftEfficiencyMultiplier() .. "x")
             table.insert(lines, "  Crop Speed: " .. Admin._config.getCropSpeedMultiplier() .. "x")
             table.insert(lines, "  Weight: " .. Admin._config.getWeightMultiplier() .. "x")
             table.insert(lines, "  RCON: " .. (Admin._config.isRconEnabled() and "enabled" or "disabled"))
@@ -830,7 +830,7 @@ function Admin._registerCommands()
             table.insert(lines, "  Loot: " .. Admin._config.getLootMultiplier() .. "x")
             table.insert(lines, "  XP: " .. Admin._config.getXpMultiplier() .. "x")
             table.insert(lines, "  Stack Size: " .. Admin._config.getStackSizeMultiplier() .. "x")
-            table.insert(lines, "  Craft Cost: " .. Admin._config.getCraftCostMultiplier() .. "x")
+            table.insert(lines, "  Craft Efficiency: " .. Admin._config.getCraftEfficiencyMultiplier() .. "x")
             table.insert(lines, "  Crop Speed: " .. Admin._config.getCropSpeedMultiplier() .. "x")
             table.insert(lines, "  Weight: " .. Admin._config.getWeightMultiplier() .. "x")
             return table.concat(lines, "\n")
