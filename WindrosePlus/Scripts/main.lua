@@ -497,11 +497,16 @@ local function dispatchTick(fn)
     _pendingTicks[fn] = true
     _pendingSince[fn] = os.time()
     -- ExecuteInGameThread can throw if neither EngineTick nor ProcessEvent
-    -- hooks are available; guard the schedule call itself.
-    local ok, err = pcall(ExecuteInGameThread, function()
-        _pendingTicks[fn] = nil
-        _pendingSince[fn] = nil
-        pcall(fn)
+    -- hooks are available, and the global itself can transiently be nil during
+    -- UE4SS init/shutdown. Resolve the global INSIDE the pcall boundary so a
+    -- nil lookup becomes a trappable Lua error instead of escaping into the
+    -- UE4SS callback dispatcher as STATUS_FATAL_USER_CALLBACK_EXCEPTION.
+    local ok, err = pcall(function()
+        ExecuteInGameThread(function()
+            _pendingTicks[fn] = nil
+            _pendingSince[fn] = nil
+            pcall(fn)
+        end)
     end)
     if not ok then
         _pendingTicks[fn] = nil

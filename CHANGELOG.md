@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.21] - 2026-04-26
+
+### Fixed
+
+- **Idle servers no longer crash with `STATUS_FATAL_USER_CALLBACK_EXCEPTION` after ~9 minutes ([#36](https://github.com/HumanGenome/WindrosePlus/issues/36)).** `dispatchTick` scheduled writers via `pcall(ExecuteInGameThread, function() ... end)`, which resolves the `ExecuteInGameThread` global *before* entering the protected boundary. When the global was transiently nil (UE4SS init/shutdown windows, or any path that left the dispatcher unresolved), `pcall` itself threw and the error escaped into UE4SS' callback dispatcher, which terminated the host process. The schedule call is now wrapped inside the `pcall`'s protected function, so a nil global becomes a trappable Lua error and the writer falls through to the existing direct-execution fallback. Thanks to @manuelVo for the diagnosis and patch.
+
 ## [1.0.20] - 2026-04-25
 
 ### Fixed
