@@ -794,6 +794,250 @@ function Admin._registerCommands()
         end
     }
 
+    Admin._commands["wp.fields"] = {
+        hidden = true, category = "debug",
+        description = "List real FProperty fields on a UE4 type via class reflection (walks superclass chain)",
+        usage = "wp.fields <TypeName> [filter]",
+        handler = function(args)
+            if #args < 1 then return "Usage: wp.fields R5PlayerState [filter]" end
+            local typeName = args[1]
+            local filter = args[2] and args[2]:lower() or nil
+            local obj = Admin._findFirstValid(typeName)
+            if not obj then return typeName .. ": no live instance found (try wp.inspect first)" end
+
+            local class
+            local ok = pcall(function() class = obj:GetClass() end)
+            if not ok or not class or not class:IsValid() then
+                return "Failed to get class for " .. typeName
+            end
+
+            local lines = {typeName .. " fields (real FProperties via reflection):"}
+            local apiTried = {}
+            local seen = 0
+            local cur = class
+
+            while cur and cur:IsValid() do
+                local cname = "?"
+                pcall(function() cname = cur:GetFullName() end)
+
+                local usedForEach = false
+                pcall(function()
+                    if type(cur.ForEachProperty) == "function" then
+                        apiTried["ForEachProperty"] = true
+                        cur:ForEachProperty(function(prop)
+                            local pname, ptype = "?", "?"
+                            pcall(function() pname = prop:GetFName():ToString() end)
+                            pcall(function() ptype = prop:GetClass():GetFName():ToString() end)
+                            if Admin._matchFilter(pname, ptype, filter) then
+                                table.insert(lines, "  " .. pname .. " : " .. ptype .. "  [" .. cname .. "]")
+                                seen = seen + 1
+                            end
+                        end)
+                        usedForEach = true
+                    end
+                end)
+
+                if not usedForEach then
+                    pcall(function()
+                        local child = cur.Children
+                        apiTried["Children-walk"] = true
+                        local guard = 0
+                        while child and child:IsValid() and guard < 4096 do
+                            local fname, ftype = "?", "?"
+                            pcall(function() fname = child:GetFName():ToString() end)
+                            pcall(function() ftype = child:GetClass():GetFName():ToString() end)
+                            if Admin._matchFilter(fname, ftype, filter) then
+                                table.insert(lines, "  " .. fname .. " : " .. ftype .. "  [" .. cname .. "]")
+                                seen = seen + 1
+                            end
+                            local nxt
+                            pcall(function() nxt = child.Next end)
+                            child = nxt
+                            guard = guard + 1
+                        end
+                    end)
+                end
+
+                local parent
+                pcall(function() parent = cur:GetSuperStruct() end)
+                if not parent or not parent:IsValid() then break end
+                cur = parent
+            end
+
+            if seen == 0 then
+                local apis = {}
+                for k in pairs(apiTried) do table.insert(apis, k) end
+                table.insert(lines, "  (no fields enumerable; tried: " .. (next(apis) and table.concat(apis, ", ") or "nothing") .. ")")
+            else
+                table.insert(lines, "(" .. seen .. " field(s) enumerated)")
+            end
+            return table.concat(lines, "\n")
+        end
+    }
+
+    Admin._commands["wp.methods"] = {
+        hidden = true, category = "debug",
+        description = "List UFunctions on a UE4 type via class reflection (walks superclass chain)",
+        usage = "wp.methods <TypeName> [filter]",
+        handler = function(args)
+            if #args < 1 then return "Usage: wp.methods R5PlayerController [filter]" end
+            local typeName = args[1]
+            local filter = args[2] and args[2]:lower() or nil
+            local obj = Admin._findFirstValid(typeName)
+            if not obj then return typeName .. ": no live instance found (try wp.inspect first)" end
+
+            local class
+            local ok = pcall(function() class = obj:GetClass() end)
+            if not ok or not class or not class:IsValid() then
+                return "Failed to get class for " .. typeName
+            end
+
+            local lines = {typeName .. " methods (UFunctions via reflection):"}
+            local apiTried = {}
+            local seen = 0
+            local cur = class
+
+            while cur and cur:IsValid() do
+                local cname = "?"
+                pcall(function() cname = cur:GetFullName() end)
+
+                local usedForEach = false
+                pcall(function()
+                    if type(cur.ForEachFunction) == "function" then
+                        apiTried["ForEachFunction"] = true
+                        cur:ForEachFunction(function(fn)
+                            local fname = "?"
+                            pcall(function() fname = fn:GetFName():ToString() end)
+                            local nparms = nil
+                            pcall(function() nparms = fn.NumParms end)
+                            if Admin._matchFilter(fname, nil, filter) then
+                                local suffix = nparms and ("  (NumParms=" .. tostring(nparms) .. ")") or ""
+                                table.insert(lines, "  " .. fname .. suffix .. "  [" .. cname .. "]")
+                                seen = seen + 1
+                            end
+                        end)
+                        usedForEach = true
+                    end
+                end)
+
+                if not usedForEach then
+                    -- Children-walk fallback: filter to UFunction-classed children
+                    pcall(function()
+                        local child = cur.Children
+                        apiTried["Children-walk"] = true
+                        local guard = 0
+                        while child and child:IsValid() and guard < 4096 do
+                            local ftype = "?"
+                            pcall(function() ftype = child:GetClass():GetFName():ToString() end)
+                            if ftype == "Function" or ftype:find("Function") then
+                                local fname = "?"
+                                pcall(function() fname = child:GetFName():ToString() end)
+                                if Admin._matchFilter(fname, nil, filter) then
+                                    table.insert(lines, "  " .. fname .. "  [" .. cname .. "]")
+                                    seen = seen + 1
+                                end
+                            end
+                            local nxt
+                            pcall(function() nxt = child.Next end)
+                            child = nxt
+                            guard = guard + 1
+                        end
+                    end)
+                end
+
+                local parent
+                pcall(function() parent = cur:GetSuperStruct() end)
+                if not parent or not parent:IsValid() then break end
+                cur = parent
+            end
+
+            if seen == 0 then
+                local apis = {}
+                for k in pairs(apiTried) do table.insert(apis, k) end
+                table.insert(lines, "  (no methods found; tried: " .. (next(apis) and table.concat(apis, ", ") or "nothing") .. ")")
+                table.insert(lines, "  Note: Windrose docs say zero Lua-callable UFunctions on R5BL — this output may be empty by design.")
+            else
+                table.insert(lines, "(" .. seen .. " method(s) enumerated)")
+            end
+            return table.concat(lines, "\n")
+        end
+    }
+
+    Admin._commands["wp.modreload"] = {
+        hidden = true, category = "debug",
+        description = "Force WP+ Lua state restart (UE4SS RestartMod). Use to pick up Scripts/ changes without bouncing the server.",
+        usage = "wp.modreload",
+        handler = function(args)
+            if not RestartMod then return "RestartMod not available in this UE4SS build" end
+            local ok, err = pcall(function() RestartMod("WindrosePlus") end)
+            if not ok then return "RestartMod failed: " .. tostring(err) end
+            return "WP+ mod restart triggered (Lua state will be torn down + rebuilt)"
+        end
+    }
+
+    Admin._commands["wp.peek"] = {
+        hidden = true, category = "debug",
+        description = "Read a property on the first valid instance of a type, with multi-way deref",
+        usage = "wp.peek <TypeName> <PropertyName>",
+        handler = function(args)
+            if #args < 2 then return "Usage: wp.peek R5PlayerState UniqueId" end
+            local typeName, propName = args[1], args[2]
+            local obj = Admin._findFirstValid(typeName)
+            if not obj then return typeName .. ": no live instance found" end
+
+            local val
+            local ok = pcall(function() val = obj[propName] end)
+            if not ok then return propName .. ": access error" end
+            if val == nil then return propName .. ": nil" end
+
+            local lines = {typeName .. "." .. propName .. ":"}
+            table.insert(lines, "  raw       = " .. tostring(val))
+            pcall(function()
+                local s = val:ToString()
+                if s ~= nil then table.insert(lines, "  ToString  = " .. tostring(s)) end
+            end)
+            pcall(function()
+                if type(val) == "userdata" and val.GetClass then
+                    local c = val:GetClass()
+                    if c and c:IsValid() then
+                        table.insert(lines, "  Class     = " .. c:GetFullName())
+                    end
+                end
+            end)
+            pcall(function()
+                if type(val) == "userdata" and val.GetFullName then
+                    table.insert(lines, "  FullName  = " .. val:GetFullName())
+                end
+            end)
+            -- For FUniqueNetIdRepl, the inner NetId might have a ToDebugString
+            for _, m in ipairs({"ToDebugString", "ToString", "ToHexString"}) do
+                pcall(function()
+                    if type(val[m]) == "function" then
+                        local s = val[m](val)
+                        if s and tostring(s) ~= "" then
+                            table.insert(lines, "  ." .. m .. " = " .. tostring(s))
+                        end
+                    end
+                end)
+            end
+            -- Try common subfields used by UE4 NetId structs
+            for _, sub in ipairs({"UniqueNetId", "Name", "Type", "Id", "Value"}) do
+                pcall(function()
+                    local sv = val[sub]
+                    if sv ~= nil then
+                        local sstr = tostring(sv)
+                        pcall(function()
+                            local s = sv:ToString()
+                            if s and s ~= "" then sstr = "[str] " .. s end
+                        end)
+                        table.insert(lines, "  ." .. sub .. " = " .. sstr)
+                    end
+                end)
+            end
+            return table.concat(lines, "\n")
+        end
+    }
+
     -- =========================================
     -- New Commands: Server Info
     -- =========================================
@@ -1156,11 +1400,131 @@ function Admin._registerCommands()
         end
     }
 
+    Admin._commands["wp.kick"] = {
+        description = "Forcibly disconnect a player by destroying their PlayerController",
+        usage = "wp.kick <playername>",
+        category = "admin",
+        examples = {"wp.kick HumanGenome"},
+        playerArg = true,
+        handler = function(args)
+            if #args < 1 then return "Usage: wp.kick <playername>" end
+            local target = table.concat(args, " ")
+            local matches = Admin._findPlayerByDisplayName(target)
+            if #matches == 0 then return "No player found with name '" .. target .. "'" end
+            if #matches > 1 then
+                return "Multiple players match '" .. target .. "' (" .. #matches ..
+                    " matches) - refusing to kick. Use exact unique name."
+            end
+            local m = matches[1]
+            if not m.pc or not m.pc:IsValid() then
+                return "Player '" .. m.name .. "' has no valid PlayerController - cannot kick"
+            end
+            local pcName = "?"
+            pcall(function() pcName = m.pc:GetFullName() end)
+            local ok, err = pcall(function() m.pc:K2_DestroyActor() end)
+            if not ok then return "Kick failed: " .. tostring(err) end
+            return "Kicked '" .. m.name .. "' (destroyed PC: " .. pcName .. ")"
+        end
+    }
+
+    Admin._commands["wp.kick_dryrun"] = {
+        hidden = true, category = "debug",
+        description = "Resolve a player's PlayerController and print without kicking. Use to verify wp.kick will work.",
+        usage = "wp.kick_dryrun <playername>",
+        handler = function(args)
+            if #args < 1 then return "Usage: wp.kick_dryrun <playername>" end
+            local target = table.concat(args, " ")
+            local matches = Admin._findPlayerByDisplayName(target)
+            if #matches == 0 then return "No player found with name '" .. target .. "'" end
+            local lines = {}
+            for _, m in ipairs(matches) do
+                local pcInfo = "(no controller)"
+                local pcValid = false
+                if m.pc and m.pc:IsValid() then
+                    pcValid = true
+                    pcall(function() pcInfo = m.pc:GetFullName() end)
+                end
+                table.insert(lines, "  " .. m.name .. " => valid=" .. tostring(pcValid) .. "  PC=" .. pcInfo)
+            end
+            return "Kick dry-run (no destruction):\n" .. table.concat(lines, "\n")
+        end
+    }
+
+    -- Diagnostic stub. UE4SS Lua cannot deref FUniqueNetIdRepl by-value (the property
+    -- access returns the UScriptStruct type, not the live struct instance). Real Steam64
+    -- export needs a C++ UE4SS mod, scheduled with the v1.3 chat-broadcast mod work.
+    Admin._commands["wp.netid"] = {
+        hidden = true, category = "debug",
+        description = "Diagnostic stub for player network ID lookup. UE4SS Lua cannot deref FUniqueNetIdRepl; needs C++ helper (v1.3).",
+        usage = "wp.netid [playername]",
+        handler = function(args)
+            local target = args[1] and table.concat(args, " ") or nil
+            local matches = Admin._findPlayerByDisplayName(target)
+            if #matches == 0 then
+                return target and ("No player found with name '" .. target .. "'")
+                    or "No R5PlayerState instances with PlayerNamePrivate found"
+            end
+            local lines = {"Network ID lookup (diagnostic; Lua cannot deref UniqueID):"}
+            for _, m in ipairs(matches) do
+                local pcName = "(no controller)"
+                if m.pc and m.pc:IsValid() then
+                    pcall(function() pcName = m.pc:GetFullName() end)
+                end
+                local pid = nil
+                pcall(function() pid = m.state.PlayerId end)
+                table.insert(lines, "  " .. m.name ..
+                    "  PlayerId=" .. tostring(pid or "?") ..
+                    "  PC=" .. pcName)
+            end
+            table.insert(lines, "(Real Steam64 export pending v1.3 C++ UE4SS mod)")
+            return table.concat(lines, "\n")
+        end
+    }
+
 end
 
 -- Delegate to shared helper in WindrosePlus global
 function Admin._isConnected(pc)
     return WindrosePlus._isConnected(pc)
+end
+
+-- Helper: match a name (and optional type string) against a pipe-delimited filter
+-- Filter "Steam|Unique" matches if name or type contains "steam" OR "unique" (case-insensitive substring).
+function Admin._matchFilter(name, type_or_nil, filter)
+    if not filter or filter == "" then return true end
+    local lname = name and name:lower() or ""
+    local ltype = type_or_nil and type_or_nil:lower() or ""
+    for term in (filter .. "|"):gmatch("([^|]*)|") do
+        if term ~= "" then
+            local lt = term:lower()
+            if lname:find(lt, 1, true) then return true end
+            if ltype ~= "" and ltype:find(lt, 1, true) then return true end
+        end
+    end
+    return false
+end
+
+-- Helper: find player(s) by display name from R5PlayerState.PlayerNamePrivate
+-- Returns table of { state = R5PlayerState, pc = PlayerController-or-nil, name = "..." }
+function Admin._findPlayerByDisplayName(targetName)
+    local matches = {}
+    local target = targetName and targetName:lower() or nil
+    local states = FindAllOf("R5PlayerState") or FindAllOf("PlayerState")
+    if not states then return matches end
+    for _, ps in ipairs(states) do
+        if ps:IsValid() then
+            local name = nil
+            pcall(function() name = ps.PlayerNamePrivate:ToString() end)
+            if name and name ~= "" then
+                if not target or name:lower() == target then
+                    local pc = nil
+                    pcall(function() pc = ps:GetPlayerController() end)
+                    table.insert(matches, { state = ps, pc = pc, name = name })
+                end
+            end
+        end
+    end
+    return matches
 end
 
 -- Helper: find players by name (case-insensitive exact match, or return all if no filter)
