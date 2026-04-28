@@ -453,7 +453,19 @@ pcall(_writeHeartbeat)
 -- Writers used to run here at 1 Hz; removed — they were redoing disk I/O +
 -- FindAllOf walks that the periodic driver already covers at its own cadence.
 local lastHookTime = 0
-RegisterHook("/Script/R5.R5MovementComponent:ServerSaveMoveInput", function()
+-- ServerSaveMoveInput fires for every moving actor — players, mobs, and NPCs.
+-- Without a player-pawn check, idle-server NPC AI keeps the mode flag stuck on
+-- "active" through the night, which invalidates the safety claim that idle-mode
+-- writers do zero UObject reads (see #43).
+RegisterHook("/Script/R5.R5MovementComponent:ServerSaveMoveInput", function(self)
+    local isPlayerPawn = false
+    pcall(function()
+        local pawn = self:GetOwner()
+        if pawn and pawn:IsValid() and pawn.IsPlayerControlled then
+            isPlayerPawn = pawn:IsPlayerControlled()
+        end
+    end)
+    if not isPlayerPawn then return end
     local now = os.time()
     if now - lastHookTime < 1 then return end
     lastHookTime = now
@@ -495,11 +507,12 @@ local function dispatchTick(fn)
     if _pendingTicks[fn] then
         local age = os.time() - (_pendingSince[fn] or 0)
         if age < _stalePendingSeconds then return end
-        -- Queue starved — game thread isn't draining. Force-clear and fall
-        -- through to direct execution so the writer makes progress.
+        -- Queue starved — drop the entry and wait for the next LoopAsync cycle.
+        -- Running the writer here on the async thread can race UE GC if mode
+        -- has been falsely set to "active" by a non-player pawn (see #43), so
+        -- we trade a delayed write for crash safety.
         _pendingTicks[fn] = nil
         _pendingSince[fn] = nil
-        pcall(fn)
         return
     end
     _pendingTicks[fn] = true
@@ -519,8 +532,12 @@ local function dispatchTick(fn)
     if not ok then
         _pendingTicks[fn] = nil
         _pendingSince[fn] = nil
-        Log.warn("Core", "ExecuteInGameThread dispatch failed: " .. tostring(err))
-        pcall(fn)
+        -- Mark the dispatcher dead so subsequent dispatches use the direct
+        -- path immediately instead of re-throwing every tick. The next
+        -- LoopAsync cycle runs the writer through the
+        -- `_hasExecuteInGameThread = false` branch above.
+        _hasExecuteInGameThread = false
+        Log.warn("Core", "ExecuteInGameThread lost — falling back to direct dispatch: " .. tostring(err))
     end
 end
 
@@ -531,7 +548,7 @@ if Rcon and Config.isRconEnabled() then
     Rcon.registerTickCallback(function() dispatchTick(runModTicks) end)
 else
     -- RCON disabled — standalone heartbeat
-    if Query or LiveMap or POIScan then
+    if (Query or LiveMap or POIScan) and LoopAsync then
         LoopAsync(5000, function()
             if Query   then dispatchTick(Query.writeIfDue) end
             if LiveMap then dispatchTick(LiveMap.writeIfDue) end

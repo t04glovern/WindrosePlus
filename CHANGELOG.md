@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.2] - 2026-04-27
+
+### Fixed
+
+- **Idle-server async-thread crash from NPC movement keeping mode stuck on "active" ([#43](https://github.com/HumanGenome/WindrosePlus/issues/43)).** `R5MovementComponent:ServerSaveMoveInput` fires for every moving pawn including mobs and NPCs, not just players. Without an `IsPlayerControlled` check, idle-server NPC AI kept the mode flag pinned to "active" through the night, which invalidated the safety claim that idle-mode writers do zero UObject reads — when the `ExecuteInGameThread` queue starved past the 30 s threshold, the stale-guard fallback ran the writer directly on the async thread and raced UE GC, producing access violations inside `UE4SS.dll`. Three companion changes harden the same path: (1) the stale-guard fallback now drops the entry instead of executing the writer on the async thread, trading a delayed write for crash safety; (2) when `ExecuteInGameThread` itself throws at runtime, `_hasExecuteInGameThread` is now set to `false` so subsequent dispatches use the direct path immediately instead of re-throwing every tick; (3) the standalone-heartbeat `LoopAsync` call is nil-guarded for degraded UE4SS modes. Thanks to @Numa26210 for the diagnosis and patch set.
+
 ## [1.1.1] - 2026-04-27
 
 ### Added
