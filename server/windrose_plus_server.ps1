@@ -405,7 +405,7 @@ function Read-RequestBodyToFile($context, $targetPath, $maxBytes) {
 function Format-RepairToolOutput($output, $repairRoot) {
     $text = (($output | ForEach-Object { "$_" }) -join "`n").Trim()
     if ($text -match "spent or allocated progression nodes|spent points detected") {
-        return "The uploaded save has spent or allocated progression nodes. Safe mode will not edit it automatically."
+        return "The uploaded save has spent or allocated progression nodes, so Safe mode declined to auto-edit it. Send the same SaveProfiles zip to your server admin or hosting support so they can run the deeper repair manually."
     }
     if ($text -match "no repairable progression drift") {
         return "No known no-spend progression drift was found in the uploaded save."

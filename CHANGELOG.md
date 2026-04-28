@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.3] - 2026-04-28
+
+### Changed
+
+- **Character repair tool: dead-end message replaced with actionable guidance.** When the uploaded save has spent or allocated progression nodes, `Safe` mode (correctly) refuses to edit it automatically. Previously the customer-facing response just said "Safe mode will not edit it automatically" and stopped, which left users with no path forward. The message now points users to send the same zip to their server admin or hosting support so a deeper repair can be run manually.
+
 ## [1.1.2] - 2026-04-27
 
 ### Fixed
