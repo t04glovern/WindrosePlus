@@ -31,7 +31,8 @@ function Events.init(gameDir)
             Log.warn("Events", "windrose_plus_data not writable — activity log disabled")
             return
         end
-        -- logs\ subdir not creatable from Lua; fall back to parent so we still
+        -- logs\ subdir not creatable from Lua (os.execute/io.popen deadlock in
+        -- UE4SS context — see rcon.lua); fall back to parent so we still
         -- capture a record. install.ps1 creates the subdir on fresh installs.
         Events._dir = parent
         Log.warn("Events", "logs\\ subdir missing — falling back to " .. parent)

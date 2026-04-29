@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.5] - 2026-04-28
+
+### Fixed
+
+- **`DefaultExecuteInGameThreadMethod = ProcessEvent` (set in v1.1.4) prevented unrelated UE4SS mods from loading.** With `HookUObjectProcessEvent = 0` — required to keep UE4SS' `ProcessEvent` detour out of the Windrose Shipping binary — the ProcessEvent dispatch path is also unavailable, and any UE4SS mod that calls `ExecuteInGameThread` without its own fallback (observed: `BPModLoaderMod`, `ConsoleEnablerMod`) errors out at script load. WindrosePlus survived because of the runtime fallback added in the same release (`_hasExecuteInGameThread = false` flips to direct dispatch on first failure), but customers running stacked UE4SS mods lost them. Reverted `DefaultExecuteInGameThreadMethod` to `EngineTick`. WindrosePlus's pcall-wrapped dispatcher catches the `ExecuteInGameThread` unavailable case the same way it caught it under ProcessEvent, so the v1.1.4 crash fixes from #41 still apply. Caught by the v1.1.4 → v1.1.5 smoke test before the SurvivalServers-side pin was bumped.
+
 ## [1.1.4] - 2026-04-28
 
 ### Fixed
