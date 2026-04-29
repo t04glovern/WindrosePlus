@@ -22,9 +22,10 @@ function Query.init(gameDir, config)
     Query._gameDir = gameDir
     Query._config = config
     Query._interval = (config.getQueryInterval() or 5000) / 1000
+    Query._idleInterval = ((config.getQueryIdleInterval and config.getQueryIdleInterval()) or 30000) / 1000
     Query._loadServerDescription(gameDir)
     Log.info("Query", "Status path: " .. Query._statusPath)
-    Log.info("Query", "Status writer ready")
+    Log.info("Query", "Status writer ready (active=" .. Query._interval .. "s, idle=" .. Query._idleInterval .. "s)")
 end
 
 function Query._loadServerDescription(gameDir)

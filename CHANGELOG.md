@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.1.6] - 2026-04-28
+
+Targeted at the server-stutter cohort tracked in [#33](https://github.com/HumanGenome/WindrosePlus/issues/33). Eight-plus self-hosted operators have reported game-thread stutter / rubber-banding when 2+ players are online; @James-Wilkinson narrowed the cause with a controlled experiment on GPortal — disabling the runtime mod after applying multipliers eliminated the lag while leaving the PAK patches in place, proving the writer dispatch path was the culprit. This release reduces the per-tick cost via interval relaxation and gives constrained hosts an explicit lever to disable individual writers.
+
+A more invasive async-handoff refactor (move JSON encode + file I/O off the game thread to a `LoopAsync` flusher) was prototyped and dropped during pre-release review — Lua 5.1 does not give cross-OS-thread happens-before guarantees for table-field publication, and UE4SS does not expose a VM lock to bridge that. Revisiting in a future release with a native queue or mutex.
+
+### Added
+
+- **Per-writer enable flags + interval overrides.** `[query] enabled / interval_ms / idle_interval_ms`, `[livemap] enabled / player_interval_ms / entity_interval_ms`, and `[poiscan] enabled / refresh_seconds` are now honored in `windrose_plus.json`. Constrained hosts (low-tier shared, single-vCore slices, GPortal-style) can disable individual writers to drop the per-tick game-thread cost while keeping RCON, admin commands, multipliers, and the mods loader running. Defaults: query active 5s / idle 30s, livemap player 5s / entity 30s, poiscan refresh 4h. Existing configs that explicitly set old keys keep working — Lua defaults fill missing sections.
+
+### Changed
+
+- **LiveMap default intervals relaxed.** Player position writes 3s → 5s, entity (mob/node) collection 15s → 30s. Cuts the per-tick `FindAllOf("Pawn")` walk frequency in half on busy servers without a visible UI difference — the dashboard's live map polls at 5s anyway. Customers who explicitly set the old shorter intervals via panel config keep them.
+- **LiveMap drives `WindrosePlus.updatePlayerCount` independently of Query.** Previously the player-count flag (which gates idle/active mode and the LiveMap zero-player short-circuit) was only updated inside `Query._collectAndWrite`. With Query disabled but LiveMap enabled, that flag would freeze and LiveMap would never see the zero-player drop. LiveMap now updates the count from the same `Query.getPlayers()` call it already makes, so each writer is independent of the others' enable state.
+
+### Panel-side
+
+- **WindrosePlus mod redeploy: force on version mismatch.** The deploy gate previously skipped extraction when the zip md5 matched the stored hash and key files existed. A stale `windrose_plus_version.txt` next to the game root could persist past a deploy if the prior extract had partially failed, leaving customers reporting "stuck on v0.2.0" or similar. The gate now also checks `windrose_plus_version.txt` against `$windrosePlusReleaseTag` and forces a full redeploy when they disagree. Fixes the recent ticket cluster: 759505, 759523, 759529, 759537, 759540, 759542.
+
 ## [1.1.5] - 2026-04-28
 
 ### Fixed

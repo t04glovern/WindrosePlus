@@ -596,18 +596,28 @@ local function _writer(name)
     return m and m.writeIfDue
 end
 
+-- Per-writer enable flags. Constrained hosts can disable individual writers
+-- via [livemap].enabled / [query].enabled / [poiscan].enabled in the config
+-- to drop the per-tick game-thread cost while keeping RCON, admin commands,
+-- multipliers, and the mods loader running. See #33.
+local _queryEnabled   = Config.isQueryEnabled()
+local _liveMapEnabled = type(Config.isLiveMapEnabled) == "function" and Config.isLiveMapEnabled() or true
+local _poiScanEnabled = type(Config.isPOIScanEnabled) == "function" and Config.isPOIScanEnabled() or true
+Log.info("Core", string.format("Writers: query=%s livemap=%s poiscan=%s",
+    tostring(_queryEnabled), tostring(_liveMapEnabled), tostring(_poiScanEnabled)))
+
 if Rcon and Config.isRconEnabled() then
-    if Query   then Rcon.registerTickCallback(function() dispatchTick(_writer("Query"))   end) end
-    if LiveMap then Rcon.registerTickCallback(function() dispatchTick(_writer("LiveMap")) end) end
-    if POIScan then Rcon.registerTickCallback(function() dispatchTick(_writer("POIScan")) end) end
+    if Query   and _queryEnabled   then Rcon.registerTickCallback(function() dispatchTick(_writer("Query"))   end) end
+    if LiveMap and _liveMapEnabled then Rcon.registerTickCallback(function() dispatchTick(_writer("LiveMap")) end) end
+    if POIScan and _poiScanEnabled then Rcon.registerTickCallback(function() dispatchTick(_writer("POIScan")) end) end
     Rcon.registerTickCallback(function() dispatchTick(runModTicks) end)
 else
     -- RCON disabled — standalone heartbeat
     if (Query or LiveMap or POIScan) and LoopAsync then
         LoopAsync(5000, function()
-            if Query   then dispatchTick(_writer("Query"))   end
-            if LiveMap then dispatchTick(_writer("LiveMap")) end
-            if POIScan then dispatchTick(_writer("POIScan")) end
+            if Query   and _queryEnabled   then dispatchTick(_writer("Query"))   end
+            if LiveMap and _liveMapEnabled then dispatchTick(_writer("LiveMap")) end
+            if POIScan and _poiScanEnabled then dispatchTick(_writer("POIScan")) end
             dispatchTick(runModTicks)
             return false
         end)

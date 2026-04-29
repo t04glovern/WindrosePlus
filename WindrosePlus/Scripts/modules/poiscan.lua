@@ -147,7 +147,10 @@ function POIScan.init(gameDir, config)
     POIScan._tmpPath = dataDir .. "\\pois.json.tmp"
     POIScan._classesPath = dataDir .. "\\poi_discovered_classes.json"
     POIScan._triggerPath = dataDir .. "\\poiscan_refresh"
-    Log.info("POIScan", "POI writer ready (R5POI*Volume scanner)")
+    if config and config.getPOIScanRefreshSeconds then
+        POIScan._refreshInterval = config.getPOIScanRefreshSeconds()
+    end
+    Log.info("POIScan", "POI writer ready (refresh=" .. POIScan._refreshInterval .. "s)")
 end
 
 function POIScan.writeIfDue()

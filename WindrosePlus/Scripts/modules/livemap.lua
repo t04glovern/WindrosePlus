@@ -8,14 +8,14 @@ local Log = require("modules.log")
 local LiveMap = {}
 LiveMap._path = nil
 LiveMap._tmpPath = nil
-LiveMap._playerInterval = 3
-LiveMap._entityInterval = 15
+LiveMap._playerInterval = 5
+LiveMap._entityInterval = 30
 LiveMap._lastPlayerWrite = 0
 LiveMap._lastEntityWrite = 0
 LiveMap._cachedMobs = {}
 LiveMap._cachedNodes = {}
 LiveMap._lastEntityCollect = 0
-LiveMap._entityCacheTTL = 60   -- clear stale entity cache after 60 seconds
+LiveMap._entityCacheTTL = 120  -- clear stale entity cache after 2x entity interval
 LiveMap._wroteEmpty = false
 
 function LiveMap.init(gameDir, config)
@@ -23,17 +23,37 @@ function LiveMap.init(gameDir, config)
     local f = io.open(dataDir .. '\\test_dir', 'w'); if f then f:close(); os.remove(dataDir .. '\\test_dir') end
     LiveMap._path = dataDir .. "\\livemap_data.json"
     LiveMap._tmpPath = dataDir .. "\\livemap_data.json.tmp"
-    Log.info("LiveMap", "Position writer ready")
+    if config and config.getLiveMapPlayerInterval then
+        LiveMap._playerInterval = config.getLiveMapPlayerInterval() / 1000
+    end
+    if config and config.getLiveMapEntityInterval then
+        LiveMap._entityInterval = config.getLiveMapEntityInterval() / 1000
+    end
+    LiveMap._entityCacheTTL = math.max(60, LiveMap._entityInterval * 4)
+    Log.info("LiveMap", "Position writer ready (player=" .. LiveMap._playerInterval .. "s, entity=" .. LiveMap._entityInterval .. "s)")
 end
 
 function LiveMap.writeIfDue()
-    -- When no players, write one final empty update then stop
-    if WindrosePlus and WindrosePlus.state.playerCount == 0 then
+    -- Always refresh the player snapshot first. Reading the cached
+    -- WindrosePlus.state.playerCount here would self-deadlock when the Query
+    -- writer is disabled — Query is what normally updates it, so a stale 0
+    -- would short-circuit LiveMap forever once it wrote the first empty
+    -- snapshot, even after a player joined.
+    local Query = WindrosePlus._modules and WindrosePlus._modules.Query
+    local allPlayers = Query and Query.getPlayers() or {}
+    local liveCount = #allPlayers
+    if WindrosePlus and WindrosePlus.updatePlayerCount then
+        pcall(WindrosePlus.updatePlayerCount, liveCount)
+    end
+
+    -- When no players, write one final empty update then stop writing the
+    -- file (we still poll the player list above, just don't burn disk I/O).
+    if liveCount == 0 then
         if not LiveMap._wroteEmpty then
             LiveMap._wroteEmpty = true
             LiveMap._cachedMobs = {}
             LiveMap._cachedNodes = {}
-            LiveMap._collectAndWrite(false) -- write empty data
+            LiveMap._collectAndWrite(false, allPlayers) -- write empty data
         end
         return
     end
@@ -57,13 +77,18 @@ function LiveMap.writeIfDue()
         LiveMap._lastEntityWrite = now
     end
 
-    LiveMap._collectAndWrite(collectEntities)
+    LiveMap._collectAndWrite(collectEntities, allPlayers)
 end
 
-function LiveMap._collectAndWrite(collectEntities)
-    -- Use Query.getPlayers() for connected players, filter to those with positions
-    local Query = WindrosePlus._modules and WindrosePlus._modules.Query
-    local allPlayers = Query and Query.getPlayers() or {}
+function LiveMap._collectAndWrite(collectEntities, prefetchedPlayers)
+    -- Use the player list passed in by writeIfDue (saves a redundant
+    -- Query.getPlayers() iteration). Falls back to a fresh query if called
+    -- without a prefetched list (defensive — current callers always pass one).
+    local allPlayers = prefetchedPlayers
+    if not allPlayers then
+        local Query = WindrosePlus._modules and WindrosePlus._modules.Query
+        allPlayers = Query and Query.getPlayers() or {}
+    end
     local players = {}
     for _, p in ipairs(allPlayers) do
         if p.x then table.insert(players, p) end

@@ -109,6 +109,34 @@ function Config.getQueryInterval()
     return Config.get("query", "interval_ms") or 5000
 end
 
+function Config.getQueryIdleInterval()
+    return Config.get("query", "idle_interval_ms") or 30000
+end
+
+-- Per-writer enable flags. Constrained hosts (low-tier shared, GPortal-style
+-- single-vCore slices) can disable individual writers to drop the per-tick
+-- game-thread cost while keeping RCON, admin commands, multipliers, and mods
+-- loader running. See https://github.com/HumanGenome/WindrosePlus/issues/33
+function Config.isLiveMapEnabled()
+    return Config.get("livemap", "enabled") ~= false
+end
+
+function Config.getLiveMapPlayerInterval()
+    return Config.get("livemap", "player_interval_ms") or 5000
+end
+
+function Config.getLiveMapEntityInterval()
+    return Config.get("livemap", "entity_interval_ms") or 30000
+end
+
+function Config.isPOIScanEnabled()
+    return Config.get("poiscan", "enabled") ~= false
+end
+
+function Config.getPOIScanRefreshSeconds()
+    return Config.get("poiscan", "refresh_seconds") or (4 * 60 * 60)
+end
+
 -- Clamp a float value to a range, logging a warning if clamped
 function Config._clampFloat(val, default, min, max, name)
     local v = tonumber(val)
@@ -190,7 +218,9 @@ function Config._defaults()
     return {
         server = { http_port = 8780, bind_ip = "" },
         rcon = { enabled = false, port = 27320, password = "" },
-        query = { enabled = true, interval_ms = 5000 },
+        query = { enabled = true, interval_ms = 5000, idle_interval_ms = 30000 },
+        livemap = { enabled = true, player_interval_ms = 5000, entity_interval_ms = 30000 },
+        poiscan = { enabled = true, refresh_seconds = 4 * 60 * 60 },
         admin = { steam_ids = {} },
         multipliers = { xp = 1.0, loot = 1.0, stack_size = 1.0, craft_efficiency = 1.0, crop_speed = 1.0, weight = 1.0, inventory_size = 1.0, cooking_speed = 1.0, harvest_yield = 1.0 },
         features = { unlock_all_recipes = false, unlock_all_ships = false },
