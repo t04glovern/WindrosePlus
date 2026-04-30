@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.10] - 2026-04-29
+
+### Fixed
+
+- **Disabled crop-speed PAK patching.** Live crash logs showed non-default `crop_speed` can trip Windrose's crop timing validator and stop the server for data inconsistency. The key still parses and appears in status for backward compatibility, but Windrose+ no longer writes crop timing overrides until a safe path is found.
+
 ## [1.1.9] - 2026-04-29
 
 ### Added

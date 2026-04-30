@@ -64,19 +64,19 @@ Global server multipliers. `1.0` = default, `2.0` = double, `0.5` = half.
 |-----|---------|-------------|
 | `loot` | `1` | Loot drop quantity from chests / containers / enemies. Equipment drops are excluded so gear can't be duplicated. Use `harvest_yield` for resource nodes. |
 | `xp` | `1` | Experience gain. Faster leveling means more talent/stat point payouts; that's the natural game progression, not a separate multiplier. |
-| `stack_size` | `1` | Item stack sizes. Items that ship as unstackable (gear, jewelry, lore notes) stay unstackable. |
+| `stack_size` | `1` | Disabled/no-op. Kept only so old configs still parse; changing it does not change item stacks. |
 | `craft_efficiency` | `1` | Crafting efficiency. Higher = cheaper recipes (`2.0` = half cost, `0.5` = double cost). The legacy key `craft_cost` is still accepted with identical semantics for backward compatibility. |
-| `crop_speed` | `1` | Crop growth speed (2.0 = twice as fast) |
+| `crop_speed` | `1` | Disabled/no-op. Kept only so old configs still parse; changing it does not change crop timing. |
 | `cooking_speed` | `1` | Cooking / fermentation / smelting speed (2.0 = twice as fast) |
 | `harvest_yield` | `1` | Resource node yield (berries, ore, wood, herbs, etc.). Scales `Amount.Min`/`Max` per node; minimum stays at `1` after rounding. |
-| `weight` | `1` | Per-item weight (`2.0` makes items heavier, `0.5` lighter) |
-| `inventory_size` | `1` | Player / chest / ship / building inventory slot counts |
+| `weight` | `1` | Disabled/no-op. Kept only so old configs still parse; changing it does not change item weight. |
+| `inventory_size` | `1` | Disabled/no-op. Kept only so old configs still parse; changing it does not change slot counts. |
 | `points_per_level` | `1` | Disabled/no-op. Kept only so old configs still parse; changing it does not grant points. |
 
 Save-safety notes:
 
-- `inventory_size`, `stack_size`, `weight`, and similar inventory-affecting changes can become part of player save state after login/save. Back up saves before enabling them.
-- Windrose+ refuses to build high-risk inventory-affecting multiplier PAKs when another installed PAK also edits inventory assets, and removes the existing generated multiplier PAK on that failure so a stale override cannot load. Remove the conflicting PAKs before rebuilding, or set `WINDROSEPLUS_ALLOW_PAK_CONFLICTS=1` only after testing the exact combination and confirming you can restore from backup.
+- `inventory_size`, `stack_size`, and `weight` are disabled because inventory-affecting changes can become part of player save state after login/save and can crash Windrose's inventory validator.
+- `crop_speed` is disabled because non-default crop timing can crash Windrose's crop validator.
 - `points_per_level` is disabled because changing progression rewards can create `RewardLevel < CurrentLevel` character-save crashes. The dashboard Character Repair page can repair the known no-spend drift case from a zipped local `SaveProfiles` folder.
 - To fully disable Windrose+ during recovery testing, stop the server, rename `R5\Binaries\Win64\dwmapi.dll`, delete or move `R5\Content\Paks\WindrosePlus_Multipliers_P.pak` and `R5\Content\Paks\WindrosePlus_CurveTables_P.pak`, then delete `R5\Content\Paks\.windroseplus_build.hash`.
 

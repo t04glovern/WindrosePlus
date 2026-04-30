@@ -212,9 +212,10 @@ function Build-MultiplierPak {
         $null = $Config.Remove("craft_cost")
     }
 
+    $disabledPakMultipliers = @("points_per_level", "stack_size", "weight", "inventory_size", "crop_speed")
     $effectiveNonDefaultMultipliers = 0
     foreach ($entry in $Config.GetEnumerator()) {
-        if ($entry.Key -eq "points_per_level") { continue }
+        if ($disabledPakMultipliers -contains $entry.Key) { continue }
         if ([double]$entry.Value -ne 1.0) { $effectiveNonDefaultMultipliers++ }
     }
 
@@ -431,25 +432,14 @@ function Build-MultiplierPak {
             Write-Host "  Skipping points_per_level (disabled due to engine ValidateProgression crash)"
         }
 
-        # Crop growth speed (FIXED: divide duration to make faster, not max())
+        # crop_speed patching intentionally disabled (v1.1.10).
+        # Live server logs showed non-default crop_speed can trip
+        # UR5CropComponent::UpdateCropStage with UpdateCropStageTime <= 0, then
+        # Windrose stops the server for data inconsistency. Keep the setting
+        # visible in config/status, but do not write a PAK override until a
+        # validator-safe crop timing path exists.
         if ($cropSpeed -ne 1.0) {
-            Write-Host "  Modifying crop growth (${cropSpeed}x)..."
-            $cropFiles = Invoke-RepakList -Repak $repak -AesKey $AesKey -PakPath $pak -Filter "Farming/Crops/"
-            $cropMod = 0
-            foreach ($cf in $cropFiles) {
-                $json = Invoke-RepakGet -Repak $repak -AesKey $AesKey -PakPath $pak -FilePath $cf.Trim()
-                if (-not $json) { continue }
-                $data = $json | ConvertFrom-Json
-                if (-not $data.GrowthDuration -or $data.GrowthDuration -le 0) { continue }
-                # Divide duration by speed multiplier: 2x speed = half duration
-                $data.GrowthDuration = [Math]::Max(1, [long]($data.GrowthDuration / $cropSpeed))
-                $outPath = Join-Path $tmpDir $cf.Trim()
-                New-Item -ItemType Directory -Force -Path (Split-Path $outPath) | Out-Null
-                [System.IO.File]::WriteAllText($outPath, ($data | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
-                $modifiedCount++
-                $cropMod++
-            }
-            Write-Host "    Modified $cropMod crops"
+            Write-Host "  Skipping crop_speed (disabled due to engine crop timing validator crash)"
         }
 
         # Cooking / production duration (alchemy elixirs, fermentation, smelting, etc.)
