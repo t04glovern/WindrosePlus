@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.12] - 2026-04-30
+
+### Fixed
+
+- **Dashboard player detection now falls back to connected `R5Character` actors.** Some dedicated hosts expose online players to RCON commands such as `wp.players`, but the dashboard Query/LiveMap writer sees an empty `PlayerController` list or controllers that fail the connected check. Query now falls back to the same character-backed detection path used by `wp.players`, which restores the crew list, player count, and Sea Chart player rows on that host class.
+
 ## [1.1.11] - 2026-04-29
 
 ### Fixed

@@ -176,53 +176,137 @@ end
 function Query.getPlayers()
     local players = {}
     local pcs = FindAllOf("PlayerController")
-    if not pcs then return players end
-    for _, pc in ipairs(pcs) do
-        if pc:IsValid() and Query._isConnected(pc) then
-            local p = { alive = true }
+    if pcs then
+        for _, pc in ipairs(pcs) do
+            if pc:IsValid() and Query._isConnected(pc) then
+                local p = { alive = true }
 
-            pcall(function()
-                local ps = pc.PlayerState
-                if ps and ps:IsValid() then
-                    pcall(function()
-                        local val = ps.PlayerNamePrivate
-                        if val then
-                            local sok, str = pcall(function() return val:ToString() end)
-                            if sok and str and str ~= "" then
-                                p.name = str
-                            end
-                        end
-                    end)
-                    if not p.name then
+                pcall(function()
+                    local ps = pc.PlayerState
+                    if ps and ps:IsValid() then
                         pcall(function()
-                            local pid = ps.PlayerId
-                            if pid then p.name = "Player " .. tostring(pid) end
+                            local val = ps.PlayerNamePrivate
+                            if val then
+                                local sok, str = pcall(function() return val:ToString() end)
+                                if sok and str and str ~= "" then
+                                    p.name = str
+                                end
+                            end
+                        end)
+                        if not p.name then
+                            pcall(function()
+                                local pid = ps.PlayerId
+                                if pid then p.name = "Player " .. tostring(pid) end
+                            end)
+                        end
+                    end
+                end)
+
+                if not p.name then p.name = "Player" end
+
+                pcall(function()
+                    local pawn = pc.Pawn
+                    if pawn and pawn:IsValid() then
+                        -- K2_GetActorLocation() traverses the attachment hierarchy and returns
+                        -- true world coords. ReplicatedMovement.Location stops giving world
+                        -- coords when the pawn is attached to a moving parent (e.g. on a ship),
+                        -- producing (0,0,0) for boarded players.
+                        pcall(function()
+                            local loc = pawn:K2_GetActorLocation()
+                            if loc then p.x = loc.X; p.y = loc.Y; p.z = loc.Z end
+                        end)
+                        if not p.x then
+                            pcall(function()
+                                local loc = pawn.ReplicatedMovement.Location
+                                if loc then p.x = loc.X; p.y = loc.Y; p.z = loc.Z end
+                            end)
+                        end
+                        pcall(function()
+                            local hc = pawn.HealthComponent
+                            if hc and hc:IsValid() then
+                                local hp = hc.CurrentHealth
+                                if hp and tonumber(tostring(hp)) == 0 then
+                                    p.alive = false
+                                end
+                            end
                         end)
                     end
-                end
+                end)
+
+                table.insert(players, p)
+            end
+        end
+    end
+
+    if #players == 0 then
+        players = Query._getPlayersFromCharacters()
+    end
+
+    return players
+end
+
+function Query._getPlayersFromCharacters()
+    local players = {}
+    local chars = FindAllOf("R5Character")
+    if not chars then return players end
+
+    for _, char in ipairs(chars) do
+        if char:IsValid() then
+            local hasController = false
+            local controller = nil
+            pcall(function()
+                controller = char.Controller
+                if controller and controller:IsValid() then hasController = true end
             end)
 
-            if not p.name then p.name = "Player" end
+            if hasController then
+                local p = { alive = true }
 
-            pcall(function()
-                local pawn = pc.Pawn
-                if pawn and pawn:IsValid() then
-                    -- K2_GetActorLocation() traverses the attachment hierarchy and returns
-                    -- true world coords. ReplicatedMovement.Location stops giving world
-                    -- coords when the pawn is attached to a moving parent (e.g. on a ship),
-                    -- producing (0,0,0) for boarded players.
+                pcall(function()
+                    local ps = controller.PlayerState
+                    if ps and ps:IsValid() then
+                        pcall(function()
+                            local val = ps.PlayerNamePrivate
+                            if val then
+                                local sok, str = pcall(function() return val:ToString() end)
+                                if sok and str and str ~= "" then
+                                    p.name = str
+                                end
+                            end
+                        end)
+                        if not p.name then
+                            pcall(function()
+                                local pid = ps.PlayerId
+                                if pid then p.name = "Player " .. tostring(pid) end
+                            end)
+                        end
+                    end
+                end)
+
+                if not p.name then p.name = "Player" end
+
+                pcall(function()
                     pcall(function()
-                        local loc = pawn:K2_GetActorLocation()
+                        local loc = char:K2_GetActorLocation()
                         if loc then p.x = loc.X; p.y = loc.Y; p.z = loc.Z end
                     end)
                     if not p.x then
                         pcall(function()
-                            local loc = pawn.ReplicatedMovement.Location
+                            local loc = char.ReplicatedMovement.Location
                             if loc then p.x = loc.X; p.y = loc.Y; p.z = loc.Z end
                         end)
                     end
+                    if not p.x then
+                        pcall(function()
+                            local root = char.RootComponent
+                            if root and root:IsValid() then
+                                local loc = root.RelativeLocation
+                                if loc then p.x = loc.X; p.y = loc.Y; p.z = loc.Z end
+                            end
+                        end)
+                    end
                     pcall(function()
-                        local hc = pawn.HealthComponent
+                        local hc = char.HealthComponent
                         if hc and hc:IsValid() then
                             local hp = hc.CurrentHealth
                             if hp and tonumber(tostring(hp)) == 0 then
@@ -230,12 +314,13 @@ function Query.getPlayers()
                             end
                         end
                     end)
-                end
-            end)
+                end)
 
-            table.insert(players, p)
+                table.insert(players, p)
+            end
         end
     end
+
     return players
 end
 
