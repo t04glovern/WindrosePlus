@@ -509,21 +509,22 @@ function Build-MultiplierPak {
             }
             Write-Host "    Modified $harvMod resource spawners"
 
-            # Mineral foliage loot tables (LootTables/Foliage/DA_LT_Mineral_*.json):
-            # copper, iron, etc. nodes are loot-table-driven and don't appear in
-            # ResourcesSpawners/, so the filter above misses them. Use the same
-            # LootData[].Min/Max schema as the loot pass. If the loot pass already
-            # wrote this file in tmpDir, read from there so the multipliers stack.
-            $mineralFiles = Invoke-RepakList -Repak $repak -AesKey $AesKey -PakPath $pak -Filter "LootTables/Foliage/DA_LT_Mineral"
-            $mineralMod = 0
-            foreach ($mf in $mineralFiles) {
-                $mfTrim = $mf.Trim()
-                $outPath = Join-Path $tmpDir $mfTrim
+            # Foliage/resource loot tables (LootTables/Foliage/*.json): trees,
+            # shipwreck debris, copper/iron/etc. nodes, and several resource
+            # props are loot-table-driven and don't appear in ResourcesSpawners/.
+            # Use the same LootData[].Min/Max schema as the loot pass. If the
+            # loot pass already wrote this file in tmpDir, read from there so
+            # the multipliers stack.
+            $foliageFiles = Invoke-RepakList -Repak $repak -AesKey $AesKey -PakPath $pak -Filter "LootTables/Foliage/"
+            $foliageMod = 0
+            foreach ($ff in $foliageFiles) {
+                $ffTrim = $ff.Trim()
+                $outPath = Join-Path $tmpDir $ffTrim
                 $existedBefore = Test-Path -LiteralPath $outPath
                 if ($existedBefore) {
                     $json = Get-Content -LiteralPath $outPath -Raw
                 } else {
-                    $json = Invoke-RepakGet -Repak $repak -AesKey $AesKey -PakPath $pak -FilePath $mfTrim
+                    $json = Invoke-RepakGet -Repak $repak -AesKey $AesKey -PakPath $pak -FilePath $ffTrim
                 }
                 if (-not $json) { continue }
                 $data = $json | ConvertFrom-Json
@@ -541,10 +542,10 @@ function Build-MultiplierPak {
                     New-Item -ItemType Directory -Force -Path (Split-Path $outPath) | Out-Null
                     [System.IO.File]::WriteAllText($outPath, ($data | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
                     if (-not $existedBefore) { $modifiedCount++ }
-                    $mineralMod++
+                    $foliageMod++
                 }
             }
-            if ($mineralMod -gt 0) { Write-Host "    Modified $mineralMod mineral loot tables" }
+            if ($foliageMod -gt 0) { Write-Host "    Modified $foliageMod foliage loot tables" }
         }
 
         if ($modifiedCount -eq 0) {

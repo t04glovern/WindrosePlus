@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.11] - 2026-04-29
+
+### Fixed
+
+- **Harvest yield now applies to all foliage/resource loot tables.** Wood, shipwreck debris, copper/iron nodes, and related resource props use `LootTables/Foliage/*.json`; the previous fix only covered mineral-prefixed tables. These foliage tables now stack `harvest_yield` on top of the normal loot multiplier instead of staying near vanilla.
+
 ## [1.1.10] - 2026-04-29
 
 ### Fixed
