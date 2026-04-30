@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Documentation
+
+- Clarified README multiplier examples so disabled compatibility keys such as `stack_size` are not shown as active server-side multipliers.
+
 ## [1.1.12] - 2026-04-30
 
 ### Fixed

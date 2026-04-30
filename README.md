@@ -61,7 +61,7 @@ Windrose dedicated servers don't respond to standard server queries, so your ser
     { "name": "CaptainMorgan", "alive": true, "x": 6200, "y": 1100 }
   ],
   "multipliers": {
-    "xp": 3.0, "loot": 2.0, "stack_size": 5.0,
+    "xp": 3.0, "loot": 2.0,
     "craft_efficiency": 2.0, "cooking_speed": 2.0, "harvest_yield": 2.0
   }
 }
@@ -74,17 +74,14 @@ Adjust XP, loot, crafting costs, cooking/smelting speed, harvest yield, and more
 
 > **Save-safety warning:** `inventory_size`, `stack_size`, `weight`, and other inventory-affecting PAK edits can become part of player save state once a character logs in and saves. Take an out-of-band save backup before enabling them. Windrose+ now refuses to build these high-risk multiplier PAKs when another installed PAK also edits inventory assets, and removes the existing generated multiplier PAK on that failure, unless an advanced admin deliberately sets `WINDROSEPLUS_ALLOW_PAK_CONFLICTS=1`.
 
-**Multipliers** (`windrose_plus.json`):
+**Active multipliers** (`windrose_plus.json`):
 ```json
 {
   "xp": 3.0,
   "loot": 2.0,
-  "stack_size": 5.0,
   "craft_efficiency": 2.0,
   "cooking_speed": 2.0,
-  "harvest_yield": 2.0,
-  "inventory_size": 2.0,
-  "weight": 1.0
+  "harvest_yield": 2.0
 }
 ```
 
@@ -249,7 +246,9 @@ Example `windrose_plus.json`:
     "multipliers": {
         "loot": 2.0,
         "xp": 3.0,
-        "stack_size": 5.0
+        "craft_efficiency": 2.0,
+        "cooking_speed": 2.0,
+        "harvest_yield": 2.0
     },
     "rcon": {
         "enabled": true,
