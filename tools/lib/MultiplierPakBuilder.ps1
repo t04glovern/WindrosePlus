@@ -546,6 +546,42 @@ function Build-MultiplierPak {
                 }
             }
             if ($foliageMod -gt 0) { Write-Host "    Modified $foliageMod foliage loot tables" }
+
+            # Segmented trees and cave dig volumes use contextual destroy
+            # scores instead of the LootData tables above.
+            $contextualHarvestFiles = @(
+                "R5/Content/Gameplay/ContextualSpawners/DA_ContextualSpawnerParams_Player_SegmentTreesAndMineralDestroy.json",
+                "R5/Content/Gameplay/ContextualSpawners/DA_ContextualSpawnerParams_Player_CopperCaves_DigVolumesDestroy.json",
+                "R5/Content/Gameplay/ContextualSpawners/DA_ContextualSpawnerParams_Player_IronCaverns_DigVolumesDestroy.json"
+            )
+            $contextualMod = 0
+            foreach ($cf in $contextualHarvestFiles) {
+                $outPath = Join-Path $tmpDir $cf
+                $existedBefore = Test-Path -LiteralPath $outPath
+                if ($existedBefore) {
+                    $json = Get-Content -LiteralPath $outPath -Raw
+                } else {
+                    $json = Invoke-RepakGet -Repak $repak -AesKey $AesKey -PakPath $pak -FilePath $cf
+                }
+                if (-not $json) { continue }
+                $data = $json | ConvertFrom-Json
+                if (-not $data.EventHandlers) { continue }
+                $changed = $false
+                foreach ($handler in $data.EventHandlers) {
+                    if ($null -ne $handler.Score -and $null -ne $handler.Score.Min -and $null -ne $handler.Score.Max) {
+                        $handler.Score.Min = [Math]::Max(0.0, [Math]::Round(([double]$handler.Score.Min) * $harvestYield, 4))
+                        $handler.Score.Max = [Math]::Max(0.0, [Math]::Round(([double]$handler.Score.Max) * $harvestYield, 4))
+                        $changed = $true
+                    }
+                }
+                if ($changed) {
+                    New-Item -ItemType Directory -Force -Path (Split-Path $outPath) | Out-Null
+                    [System.IO.File]::WriteAllText($outPath, ($data | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
+                    if (-not $existedBefore) { $modifiedCount++ }
+                    $contextualMod++
+                }
+            }
+            if ($contextualMod -gt 0) { Write-Host "    Modified $contextualMod contextual destroy score tables" }
         }
 
         if ($modifiedCount -eq 0) {
