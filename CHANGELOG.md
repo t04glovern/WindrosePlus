@@ -6,6 +6,12 @@
 
 - Clarified README multiplier examples so disabled compatibility keys such as `stack_size` are not shown as active server-side multipliers.
 
+## [1.1.13] - 2026-04-30
+
+### Fixed
+
+- **Query/LiveMap no longer get stuck in degraded mode when UE4SS exposes `ExecuteInGameThread` but the selected dispatcher hook is disabled.** Windrose-safe UE4SS settings keep both EngineTick and ProcessEvent hooks off, which meant `ExecuteInGameThread` accepted queued callbacks that never ran. Windrose+ now detects that inert configuration at startup and uses the existing direct writer fallback instead of permanently reporting `execute_in_game_thread_starved`, restoring dashboard player counts, active/idle mode, and Sea Chart updates on SurvivalServers-style installs.
+
 ## [1.1.12] - 2026-04-30
 
 ### Fixed

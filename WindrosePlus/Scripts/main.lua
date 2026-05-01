@@ -485,12 +485,63 @@ LoopAsync(30000, function() pcall(_writeTickBeat); return false end)
 
 -- Writers touch UObjects (FindAllOf, property reads). UE4SS's LoopAsync runs on
 -- a dedicated async thread, which races with game-thread GC / spawn / destroy.
--- We dispatch each writer's UObject collection to the game thread via
--- ExecuteInGameThread, then flush queued JSON file writes from the async driver
--- on the next tick so disk I/O does not run on the simulation thread (#33).
-local _hasExecuteInGameThread = type(ExecuteInGameThread) == "function"
+-- When a viable UE4SS dispatcher hook is enabled, dispatch each writer's UObject
+-- collection to the game thread via ExecuteInGameThread, then flush queued JSON
+-- file writes from the async driver on the next tick so disk I/O does not run on
+-- the simulation thread (#33).
+local function _readUe4ssSettings()
+    local path = gameDir .. "R5\\Binaries\\Win64\\ue4ss\\UE4SS-settings.ini"
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local raw = f:read("*a")
+    f:close()
+    local out = {}
+    for line in raw:gmatch("[^\r\n]+") do
+        local key, value = line:match("^%s*([%w_]+)%s*=%s*([^;]*)")
+        if key then
+            out[key:lower()] = tostring(value or ""):match("^%s*(.-)%s*$")
+        end
+    end
+    return out
+end
+
+local function _settingEnabled(settings, key)
+    if not settings then return nil end
+    local v = settings[key:lower()]
+    if v == nil then return nil end
+    v = tostring(v):lower():match("^%s*(.-)%s*$")
+    if v == "1" or v == "true" or v == "yes" or v == "on" then return true end
+    if v == "0" or v == "false" or v == "no" or v == "off" then return false end
+    return nil
+end
+
+local function _detectExecuteInGameThread()
+    if type(ExecuteInGameThread) ~= "function" then
+        return false, "global_missing"
+    end
+    local settings = _readUe4ssSettings()
+    if not settings then
+        return true, nil
+    end
+    local method = tostring(settings.defaultexecuteingamethreadmethod or "enginetick"):lower()
+    local engineTick = _settingEnabled(settings, "HookEngineTick")
+    local processEvent = _settingEnabled(settings, "HookUObjectProcessEvent")
+
+    if method == "enginetick" and engineTick == false then
+        return false, "EngineTick dispatch selected but HookEngineTick=0"
+    end
+    if method == "processevent" and processEvent == false then
+        return false, "ProcessEvent dispatch selected but HookUObjectProcessEvent=0"
+    end
+    if engineTick == false and processEvent == false then
+        return false, "all ExecuteInGameThread dispatcher hooks disabled"
+    end
+    return true, nil
+end
+
+local _hasExecuteInGameThread, _executeInGameThreadReason = _detectExecuteInGameThread()
 if not _hasExecuteInGameThread then
-    Log.warn("Core", "ExecuteInGameThread not available — writers will run on async thread (UObject races possible)")
+    Log.warn("Core", "ExecuteInGameThread unavailable (" .. tostring(_executeInGameThreadReason) .. ") — writers will run directly")
 end
 
 -- Per-writer coalescing: if a dispatch is already pending (not yet drained by
